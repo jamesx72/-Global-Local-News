@@ -54,14 +54,14 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden xl:flex items-center bg-brand-surface-low rounded-full px-4 py-1.5 gap-2 border border-brand-outline-variant">
-            <Search size={18} className="text-gray-400" />
+          <div className="flex items-center bg-brand-surface-low rounded-full px-3 md:px-4 py-1.5 gap-2 border border-brand-outline-variant w-full max-w-[150px] md:max-w-none">
+            <Search size={18} className="text-gray-400 shrink-0" />
             <input 
               type="text" 
-              placeholder="Search global reports, tags..." 
+              placeholder="Search..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent text-sm focus:outline-none w-48 text-brand-primary" 
+              className="bg-transparent text-sm focus:outline-none w-full md:w-48 text-brand-primary min-w-0" 
             />
           </div>
           {!isVerification && (

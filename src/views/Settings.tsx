@@ -16,6 +16,7 @@ interface SettingsState {
   };
   language: string;
   typography: string;
+  readerMode: boolean;
 }
 
 export default function Settings() {
@@ -38,7 +39,8 @@ export default function Settings() {
           showLocation: false
         },
         language: 'en',
-        typography: 'classic'
+        typography: 'classic',
+        readerMode: false
       };
     } catch (e) {
       return {
@@ -48,7 +50,8 @@ export default function Settings() {
         notifications: { email: true, push: false, newsletter: true },
         privacy: { profileVisible: true, showLocation: false },
         language: 'en',
-        typography: 'classic'
+        typography: 'classic',
+        readerMode: false
       };
     }
   });
@@ -264,6 +267,16 @@ export default function Settings() {
                       <option value="ja" className="bg-[#0A0A0A]">日本語 (JA)</option>
                     </select>
                   </div>
+
+                  <label className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl cursor-pointer hover:border-white/20 transition-colors">
+                    <div>
+                      <div className="text-sm font-medium text-white mb-1">Reader View by Default</div>
+                      <div className="text-[11px] text-white/40">Increases line height, limits max-width, and hides non-essential UI for better readability.</div>
+                    </div>
+                    <div className={`w-10 h-6 rounded-full transition-colors relative ${settings.readerMode ? 'bg-brand-success' : 'bg-white/10'}`} onClick={() => setSettings({...settings, readerMode: !settings.readerMode})}>
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.readerMode ? 'left-5' : 'left-1'}`} />
+                    </div>
+                  </label>
 
                   <div className="p-4 bg-black/40 border border-white/5 rounded-xl flex items-start gap-4">
                     <Moon className="text-brand-secondary shrink-0" size={20} />

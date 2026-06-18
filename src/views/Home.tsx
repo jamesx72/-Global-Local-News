@@ -6,6 +6,7 @@ import ReadingModeModal from '../components/ReadingModeModal';
 import SentimentIndicator from '../components/SentimentIndicator';
 import AITagsIndicator from '../components/AITagsIndicator';
 import { handleShareAction } from '../utils/share';
+import { getReadingTime } from '../utils/readingTime';
 
 const TRENDING_ARTICLES: Article[] = [
   {
@@ -15,7 +16,8 @@ const TRENDING_ARTICLES: Article[] = [
     location: 'Tokyo, Japan',
     imageUrl: 'https://images.unsplash.com/photo-1541804246944-d621183204cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     trustScore: 92,
-    readingTime: 4
+    readingTime: 4,
+    tags: ['Technology', 'Infrastructure', 'Innovation']
   },
   {
     id: 'art-2',
@@ -24,16 +26,38 @@ const TRENDING_ARTICLES: Article[] = [
     location: 'London, UK',
     imageUrl: 'https://images.unsplash.com/photo-1520601332219-94bf7be28f69?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     trustScore: 98,
-    readingTime: 6
+    readingTime: 6,
+    tags: ['Politics', 'Legislation', 'Governance']
   },
   {
     id: 'art-3',
-    category: 'Health',
+    category: 'Environment',
     title: 'Urban Air Quality Levels Hit Record Highs Follow Green Initiative',
     location: 'Singapore',
     imageUrl: 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     trustScore: 85,
-    readingTime: 3
+    readingTime: 3,
+    tags: ['Environment', 'Sustainability', 'Urban']
+  },
+  {
+    id: 'art-4',
+    category: 'Science',
+    title: 'Deep-Ocean Exploration Submarine Discovers New Ecosystems',
+    location: 'Mariana Trench',
+    imageUrl: 'https://images.unsplash.com/photo-1682687220199-d0124f5a34e0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    trustScore: 94,
+    readingTime: 5,
+    tags: ['Science', 'Oceanography', 'Discovery']
+  },
+  {
+    id: 'art-5',
+    category: 'Economy',
+    title: 'Global Markets Rally on Unprecedented Green Energy Deals',
+    location: 'Geneva, Switzerland',
+    imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80',
+    trustScore: 89,
+    readingTime: 4,
+    tags: ['Economy', 'Energy', 'Global']
   }
 ];
 
@@ -45,7 +69,11 @@ export default function Home() {
   const [articles, setArticles] = useState<Article[]>(TRENDING_ARTICLES);
   const { searchQuery } = useSearch();
 
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
   const filteredArticles = articles.filter(article => {
+    if (selectedCategory !== 'All' && article.category !== selectedCategory) return false;
+    
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -56,6 +84,8 @@ export default function Home() {
       article.category.toLowerCase().includes(q)
     );
   });
+
+  const availableCategories = ['All', ...Array.from(new Set(articles.map(a => a.category)))];
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -149,6 +179,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Daily Digest Carousel */}
+      {articles.length >= 5 && (
+        <section className="pt-2">
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-2xl font-serif font-bold text-brand-primary">Daily Digest</h2>
+            <span className="text-sm font-medium text-gray-500">Top 5 Trending</span>
+          </div>
+          
+          <div className="flex gap-6 overflow-x-auto nice-scroll pb-6 snap-x snap-mandatory">
+            {articles.slice(0, 5).map((article, index) => (
+              <article 
+                key={`digest-${article.id}`} 
+                onClick={() => setReadingArticle(article)}
+                className="snap-always snap-start shrink-0 w-[85%] md:w-[60%] lg:w-[40%] bg-brand-surface-lowest rounded-2xl shadow-sm border border-brand-outline-variant overflow-hidden group cursor-pointer hover:shadow-md transition-shadow flex flex-col"
+              >
+                <div className="h-56 relative overflow-hidden">
+                  <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <div className="absolute top-4 left-4 bg-brand-primary/90 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                    #{index + 1} Trending
+                  </div>
+                  <div className="absolute bottom-4 left-4 right-4">
+                     <div className="flex items-center gap-2 text-white/80 text-xs mb-2">
+                       <span className="bg-brand-secondary/90 text-brand-surface-lowest px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">{article.category}</span>
+                       <span className="flex items-center gap-1"><Clock size={12} /> {getReadingTime(article.content || '')} min read</span>
+                     </div>
+                     <h3 className="font-serif font-bold text-xl text-white leading-snug group-hover:text-brand-secondary-container transition-colors line-clamp-2">
+                       {article.title}
+                     </h3>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Trending Now */}
       <section>
         <div className="flex justify-between items-center mb-6">
@@ -169,6 +236,22 @@ export default function Home() {
           <button className="text-brand-primary font-semibold text-sm flex items-center gap-1 hover:underline">
             View All <ArrowRight size={16} />
           </button>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto nice-scroll pb-4 mb-4">
+          {availableCategories.map(category => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                selectedCategory === category 
+                  ? 'bg-brand-primary text-brand-surface-lowest' 
+                  : 'bg-brand-surface-lowest text-gray-500 hover:bg-gray-200 border border-brand-outline-variant'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -216,11 +299,9 @@ export default function Home() {
                     <div className="flex items-center gap-1.5 text-gray-500 text-xs">
                       <MapPin size={14} className="text-brand-secondary" /> {article.location}
                     </div>
-                    {article.readingTime && (
-                      <div className="flex items-center gap-1 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
-                        <Clock size={12} /> {article.readingTime} min read
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                      <Clock size={12} /> {getReadingTime(article.content)} min read
+                    </div>
                   </div>
                   <h3 className="font-serif font-bold text-lg text-brand-primary leading-snug mb-4 group-hover:text-brand-primary-container">{article.title}</h3>
                   <SentimentIndicator title={article.title} content={article.content || ''} />

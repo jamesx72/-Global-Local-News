@@ -9,7 +9,7 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route for article summarization
+  // API Route for article summarization (Streaming)
   app.post("/api/summarize", async (req, res) => {
     try {
       const { text } = req.body;
@@ -22,30 +22,38 @@ async function startServer() {
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      let response;
       const prompt = `Summarize the following article text into exactly 3 concise bullet points. Each bullet point MUST start with a dash (-) and a space.\n\nText:\n${text}`;
       
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
       try {
-        response = await ai.models.generateContent({
+        const responseStream = await ai.models.generateContentStream({
           model: "gemini-2.5-flash",
           contents: prompt
         });
-      } catch (err: any) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        try {
-          response = await ai.models.generateContent({
-            model: "gemini-1.5-flash",
-            contents: prompt
-          });
-        } catch (fbErr: any) {
-          return res.json({ summary: "Summary currently unavailable due to high API demand. Please read the full article." });
+        
+        for await (const chunk of responseStream) {
+          if (chunk.text) {
+            res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+          }
         }
+        res.write('data: [DONE]\n\n');
+        res.end();
+      } catch (err: any) {
+        console.error("Stream generation error:", err);
+        res.write(`data: ${JSON.stringify({ text: "\n\nError: Summary currently unavailable due to high API demand." })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
       }
-
-      res.json({ summary: response.text });
     } catch (error) {
       console.error("Summarization error:", error);
-      res.status(503).json({ error: "Summarization service is currently unavailable. Please try again later." });
+      if (!res.headersSent) {
+        res.status(503).json({ error: "Summarization service is currently unavailable. Please try again later." });
+      } else {
+        res.end();
+      }
     }
   });
 

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square, Clock } from 'lucide-react';
 import { Article, useBookmarks } from '../hooks/useBookmarks';
 import { useRecentArticles } from '../hooks/useRecentArticles';
+import { getReadingTime } from '../utils/readingTime';
 
 interface Comment {
   id: string;
@@ -32,9 +33,26 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [readerMode, setReaderMode] = useState(false);
 
   React.useEffect(() => {
+    const handleSettingsChange = () => {
+      try {
+        const saved = window.localStorage.getItem('app_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.readerMode !== undefined) {
+            setReaderMode(parsed.readerMode);
+          }
+        }
+      } catch (e) {}
+    };
+    
+    handleSettingsChange();
+    window.addEventListener('app_settings_changed', handleSettingsChange);
     return () => {
+      window.removeEventListener('app_settings_changed', handleSettingsChange);
       window.speechSynthesis.cancel();
     };
   }, []);
@@ -190,7 +208,9 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
       utterance.onend = () => {
         setIsPlaying(false);
         setIsPaused(false);
+        utteranceRef.current = null;
       };
+      utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
       setIsPlaying(true);
       setIsPaused(false);
@@ -199,6 +219,7 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
 
   const handleStopAudio = () => {
     window.speechSynthesis.cancel();
+    utteranceRef.current = null;
     setIsPlaying(false);
     setIsPaused(false);
   };
@@ -214,7 +235,9 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
         utterance.onend = () => {
           setIsPlaying(false);
           setIsPaused(false);
+          utteranceRef.current = null;
         };
+        utteranceRef.current = utterance;
         window.speechSynthesis.speak(utterance);
         if (isPaused) {
           window.speechSynthesis.pause();
@@ -255,7 +278,7 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
   const handleSummarize = async () => {
     if (!articleContent) return;
     setIsSummarizing(true);
-    setSummary(null);
+    setSummary('');
     try {
       const response = await fetch('/api/summarize', {
         method: 'POST',
@@ -263,8 +286,38 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
         body: JSON.stringify({ text: articleContent })
       });
       if (!response.ok) throw new Error('API error');
-      const data = await response.json();
-      setSummary(data.summary);
+      
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Stream read error');
+
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.substring(6);
+              if (dataStr === '[DONE]') {
+                done = true;
+                break;
+              }
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.text) {
+                  setSummary(prev => (prev || '') + data.text);
+                }
+              } catch (e) {
+                // Ignore parsing errors for incomplete chunks
+              }
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error(err);
       setSummary("AI Summary is currently unavailable in this environment. Please ensure the backend is connected and GEMINI_API_KEY is configured.");
@@ -342,52 +395,61 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
         <div className="flex-1 overflow-y-auto w-full nice-scroll" onScroll={handleScroll}>
           <div className="max-w-2xl mx-auto py-12 px-8">
             <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-xs uppercase tracking-[0.3em] text-brand-secondary">{article.category}</span>
-                <span className="text-xs text-white/40">•</span>
-                <span className="text-xs uppercase tracking-widest text-white/40">{article.location}</span>
-                <span className="text-xs text-white/40">•</span>
-                <span className="text-xs font-bold text-brand-success bg-brand-success/10 px-2 py-0.5 rounded uppercase">{article.trustScore} Trust Score</span>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-serif text-brand-primary leading-tight mb-8">
+              {!readerMode && (
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-xs uppercase tracking-[0.3em] text-brand-secondary">{article.category}</span>
+                  <span className="text-xs text-white/40">•</span>
+                  <span className="text-xs uppercase tracking-widest text-white/40">{article.location}</span>
+                  <span className="text-xs text-white/40">•</span>
+                  <span className="text-xs font-bold text-brand-success bg-brand-success/10 px-2 py-0.5 rounded uppercase">{article.trustScore} Trust Score</span>
+                </div>
+              )}
+              <h1 className="text-4xl md:text-5xl font-serif text-brand-primary leading-tight mb-4">
                 {article.title}
               </h1>
               
-              <div className="mb-10 bg-brand-secondary/5 border border-brand-secondary/20 rounded-xl p-5">
-                <div className="flex items-start gap-4">
-                  <div className="bg-brand-secondary/20 p-2 rounded-lg">
-                    <Sparkles className="text-brand-secondary" size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                       <h4 className="text-brand-secondary font-bold text-sm tracking-wide">AI SUMMARY</h4>
-                       {!summary && (
-                         <button 
-                           onClick={handleSummarize}
-                           disabled={isSummarizing}
-                           className="text-xs bg-brand-secondary text-brand-surface-lowest px-3 py-1.5 rounded-full font-semibold hover:bg-white transition-colors disabled:opacity-50"
-                         >
-                           {isSummarizing ? "Summarizing..." : "Summarize"}
-                         </button>
-                       )}
-                    </div>
-                    {summary ? (
-                      <div className="text-brand-primary text-sm space-y-2 mt-3 pl-2">
-                        {summary.split('\n').filter(line => line.trim().length > 0).map((bullet, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <span className="text-brand-secondary mt-1 text-[10px]">■</span>
-                            <span>{bullet.replace(/^-\s*/, '').trim()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-white/50 text-sm">Use Gemini API to instantly generate a quick, bulleted summary of this report.</p>
-                    )}
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 text-brand-secondary font-medium tracking-wide mb-8">
+                <Clock size={16} />
+                <span>{getReadingTime(article.content)} min read</span>
               </div>
               
-              {article.imageUrl && (
+              {!readerMode && (
+                <div className="mb-10 bg-brand-secondary/5 border border-brand-secondary/20 rounded-xl p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-brand-secondary/20 p-2 rounded-lg">
+                      <Sparkles className="text-brand-secondary" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                         <h4 className="text-brand-secondary font-bold text-sm tracking-wide">AI SUMMARY</h4>
+                         {!summary && (
+                           <button 
+                             onClick={handleSummarize}
+                             disabled={isSummarizing}
+                             className="text-xs bg-brand-secondary text-brand-surface-lowest px-3 py-1.5 rounded-full font-semibold hover:bg-white transition-colors disabled:opacity-50"
+                           >
+                             {isSummarizing ? "Summarizing..." : "Summarize"}
+                           </button>
+                         )}
+                      </div>
+                      {summary ? (
+                        <div className="text-brand-primary text-sm space-y-2 mt-3 pl-2">
+                          {summary.split('\n').filter(line => line.trim().length > 0).map((bullet, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <span className="text-brand-secondary mt-1 text-[10px]">■</span>
+                              <span>{bullet.replace(/^-\s*/, '').trim()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-white/50 text-sm">Use Gemini API to instantly generate a quick, bulleted summary of this report.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {(!readerMode && article.imageUrl) && (
                 <div className="w-full h-64 md:h-80 rounded-xl overflow-hidden mb-10 border border-white/5">
                   <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover" />
                 </div>
@@ -395,7 +457,7 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
             </div>
 
             <div 
-              className="font-sans text-white/80 leading-relaxed font-light" 
+              className={`font-sans text-white/80 font-light ${readerMode ? 'leading-loose max-w-prose mx-auto' : 'leading-relaxed'}`} 
               style={{ fontSize: `${fontSize}px` }}
             >
               {(translatedContent || articleContent).split('\n\n').map((paragraph, idx) => (
@@ -403,8 +465,20 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
               ))}
             </div>
 
+            <div className="mt-12 mb-8 flex justify-center">
+              <button 
+                onClick={(e) => onShare(e, article.id)}
+                className="flex items-center gap-2 bg-brand-primary text-brand-surface-lowest px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:bg-white transition-colors"
+                title="Share Article"
+              >
+                <Share2 size={18} />
+                {copiedId === article.id ? 'Copied to Clipboard!' : 'Share this Article'}
+              </button>
+            </div>
+
             {/* Comments Section */}
-            <div className="mt-16 pt-8 border-t border-white/10">
+            {!readerMode && (
+              <div className="mt-16 pt-8 border-t border-white/10">
               <h3 className="text-xl font-serif text-brand-primary mb-6 flex items-center gap-2">
                 <MessageSquare size={20} className="text-brand-secondary" /> 
                 Discussion ({comments.length})
@@ -449,9 +523,10 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
                 </button>
               </form>
             </div>
+            )}
 
             {/* Related Articles Section */}
-            {relatedArticles.length > 0 && (
+            {(!readerMode && relatedArticles.length > 0) && (
               <div className="mt-16 pt-8 border-t border-white/10">
                 <h3 className="text-xl font-serif text-brand-primary mb-6 flex items-center gap-2">
                   <Layers size={20} className="text-brand-secondary" /> 

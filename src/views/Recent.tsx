@@ -8,6 +8,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import SentimentIndicator from '../components/SentimentIndicator';
 import AITagsIndicator from '../components/AITagsIndicator';
 import { handleShareAction } from '../utils/share';
+import { getReadingTime } from '../utils/readingTime';
 
 export default function Recent() {
   const { recentArticles, clearRecentArticles, loading } = useRecentArticles();
@@ -118,11 +119,9 @@ export default function Recent() {
                     <div className="flex items-center gap-1.5 text-gray-500 text-xs">
                       <MapPin size={14} className="text-brand-secondary" /> {article.location}
                     </div>
-                    {article.readingTime && (
-                      <div className="flex items-center gap-1 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
-                        <Clock size={12} /> {article.readingTime} min read
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                      <Clock size={12} /> {getReadingTime(article.content)} min read
+                    </div>
                   </div>
                   <h3 className="font-serif font-bold text-lg text-brand-primary leading-snug mb-4 group-hover:text-brand-primary-container">{article.title}</h3>
                   <SentimentIndicator title={article.title} content={article.content || ''} />
