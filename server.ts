@@ -9,6 +9,50 @@ async function startServer() {
 
   app.use(express.json());
 
+  // API Route for live news feeds (RSS)
+  app.get("/api/news/trending", async (req, res) => {
+    try {
+      const Parser = (await import('rss-parser')).default;
+      const parser = new Parser({
+        customFields: {
+          item: [
+            ['media:content', 'mediaContent'],
+            ['description', 'description']
+          ],
+        }
+      });
+      // Fetch NYT World News feed as a reliable, live source
+      const feed = await parser.parseURL('https://rss.nytimes.com/services/xml/rss/nyt/World.xml');
+      
+      const articles = feed.items.map((item, index) => {
+        let imageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80';
+        if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
+          imageUrl = item.mediaContent['$'].url;
+        }
+
+        return {
+          id: `live-${index}-${Date.now()}`,
+          category: 'World News',
+          title: item.title || 'Untitled',
+          location: 'Global',
+          imageUrl,
+          trustScore: 95, // Assumed for NYT
+          readingTime: Math.max(3, Math.floor(Math.random() * 5) + 2), // Mock reading time
+          content: item.contentSnippet || item.content || item.description || '',
+          timestamp: item.pubDate,
+          tags: Array.isArray(item.categories)
+            ? item.categories.map((c: any) => typeof c === 'string' ? c : (c?._ || c?.domain || String(c)))
+            : ['World News']
+        };
+      });
+
+      res.json({ articles });
+    } catch (error) {
+      console.error("Failed to fetch live news:", error);
+      res.status(500).json({ error: "Failed to fetch live news" });
+    }
+  });
+
   // API Route for article summarization (Streaming)
   app.post("/api/summarize", async (req, res) => {
     try {

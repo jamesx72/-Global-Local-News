@@ -541,7 +541,7 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
                           <div className="flex flex-wrap gap-1 mt-auto">
                             {relArticle.tags.slice(0, 2).map((tag, idx) => (
                               <span key={idx} className="bg-brand-secondary/20 text-brand-secondary px-1.5 py-0.5 rounded text-[10px] font-medium">
-                                #{tag.toUpperCase()}
+                                #{typeof tag === 'string' ? tag.toUpperCase() : String(tag).toUpperCase()}
                               </span>
                             ))}
                           </div>

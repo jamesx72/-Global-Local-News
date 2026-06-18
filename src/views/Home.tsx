@@ -87,45 +87,29 @@ export default function Home() {
 
   const availableCategories = ['All', ...Array.from(new Set(articles.map(a => a.category)))];
 
-  const handleRefresh = async () => {
+  const fetchLiveNews = async () => {
     setIsRefreshing(true);
-    
-    // Auto-fetch tags sequentially to avoid rate limiting
-    const updatedArticles = [...articles];
-    for (let i = 0; i < updatedArticles.length; i++) {
-      const article = updatedArticles[i];
-      if (!article.tags || article.tags.length === 0) {
-        try {
-          const res = await fetch('/api/categorize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: article.title, content: article.content })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.tags && data.tags.length > 0) {
-              updatedArticles[i] = { ...article, tags: data.tags };
-              setArticles([...updatedArticles]); // Update state progressively
-            }
-          }
-        } catch (e) {
-          console.error('Failed to categorize', e);
+    try {
+      const res = await fetch('/api/news/trending');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.articles && data.articles.length > 0) {
+          setArticles(data.articles);
         }
-        // Small delay to prevent rate limiting
-        await new Promise(resolve => setTimeout(resolve, 800));
       }
+    } catch (e) {
+      console.error('Failed to fetch live news (falling back to local cache):', e);
     }
-
     setIsRefreshing(false);
   };
 
   React.useEffect(() => {
-    // Initial fetch to populate tags
-    handleRefresh();
+    // Initial fetch from NYT API feed
+    fetchLiveNews();
 
     const autoFetchInterval = setInterval(() => {
-      handleRefresh();
-    }, 60000); // 60 seconds auto-fetch
+      fetchLiveNews();
+    }, 5 * 60 * 1000); // 5 minutes auto-fetch
 
     return () => clearInterval(autoFetchInterval);
   }, []);
@@ -225,7 +209,7 @@ export default function Home() {
               <span className="px-2.5 py-0.5 bg-brand-secondary-container text-brand-secondary text-xs rounded-full font-bold uppercase tracking-wider animate-pulse">Live</span>
             </h2>
             <button 
-              onClick={handleRefresh}
+              onClick={fetchLiveNews}
               disabled={isRefreshing}
               className="p-2 text-brand-secondary hover:bg-brand-secondary-container/50 rounded-full transition-colors disabled:opacity-50"
               title="Refresh feed"

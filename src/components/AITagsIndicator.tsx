@@ -81,7 +81,7 @@ export default function AITagsIndicator({ title, content, fallbackTags = [] }: A
       {tags.map((tag, idx) => (
         <span key={idx} className="bg-brand-surface-low text-brand-primary px-2 py-1 rounded text-xs font-medium border border-brand-outline-variant flex items-center gap-1">
           <Tag size={10} className="text-brand-secondary" />
-          {tag.toUpperCase()}
+          {typeof tag === 'string' ? tag.toUpperCase() : String(tag).toUpperCase()}
         </span>
       ))}
     </div>
