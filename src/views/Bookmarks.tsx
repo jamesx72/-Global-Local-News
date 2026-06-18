@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
 import { useBookmarks, Article } from '../hooks/useBookmarks';
+import { useSearch } from '../hooks/useSearch';
 import { Bookmark, BookmarkCheck, MapPin, Verified, ArrowRight, Share2, CheckCircle2, Maximize2, Clock } from 'lucide-react';
 import ReadingModeModal from '../components/ReadingModeModal';
+import SkeletonLoader from '../components/SkeletonLoader';
+import SentimentIndicator from '../components/SentimentIndicator';
+import AITagsIndicator from '../components/AITagsIndicator';
+import { handleShareAction } from '../utils/share';
 
 export default function Bookmarks() {
-  const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks();
+  const { bookmarks, toggleBookmark, isBookmarked, loading } = useBookmarks();
+  const { searchQuery } = useSearch();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [readingArticle, setReadingArticle] = useState<Article | null>(null);
 
-  const handleShare = (e: React.SyntheticEvent | KeyboardEvent | null, id: string) => {
-    if (e && e.stopPropagation) e.stopPropagation();
-    const url = `${window.location.origin}/article/${id}`;
-    navigator.clipboard.writeText(url).then(() => {
+  const filteredBookmarks = bookmarks.filter(article => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      article.title.toLowerCase().includes(q) ||
+      (article.content && article.content.toLowerCase().includes(q)) ||
+      (article.tags && article.tags.some(tag => tag.toLowerCase().includes(q))) ||
+      article.location.toLowerCase().includes(q) ||
+      article.category.toLowerCase().includes(q)
+    );
+  });
+
+  const handleShare = (e: React.SyntheticEvent | KeyboardEvent | null, articleId: string, articleTitle: string) => {
+    handleShareAction(e, articleId, articleTitle, (id) => {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     });
@@ -22,6 +38,19 @@ export default function Bookmarks() {
     toggleBookmark(article);
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-serif font-bold text-brand-primary flex items-center gap-3">
+            Saved Collections
+          </h2>
+        </div>
+        <SkeletonLoader count={6} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 ">
       <div className="flex justify-between items-center mb-6">
@@ -30,15 +59,15 @@ export default function Bookmarks() {
         </h2>
       </div>
 
-      {bookmarks.length === 0 ? (
+      {filteredBookmarks.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 bg-brand-surface-low border border-brand-outline-variant rounded-2xl text-center">
           <Bookmark size={48} className="text-brand-outline mb-4" />
-          <h3 className="text-xl font-serif font-bold text-brand-primary mb-2">No Saved Articles</h3>
-          <p className="text-gray-500 mb-6 max-w-md">You haven't bookmarked any articles yet. Explore the live feed to start building your collection.</p>
+          <h3 className="text-xl font-serif font-bold text-brand-primary mb-2">No Saved Articles Match</h3>
+          <p className="text-gray-500 mb-6 max-w-md">Try searching for something else or explore the live feed.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {bookmarks.map((article) => {
+          {filteredBookmarks.map((article) => {
             const bookmarked = isBookmarked(article.id);
             return (
               <article 
@@ -52,7 +81,7 @@ export default function Bookmarks() {
                   <div className="absolute top-3 left-3 bg-brand-secondary-container text-brand-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">{article.category}</div>
                   <div className="absolute top-3 right-3 flex gap-2">
                     <button 
-                      onClick={(e) => handleShare(e, article.id)}
+                      onClick={(e) => handleShare(e, article.id, article.title)}
                       className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors"
                       title="Share Article"
                     >
@@ -84,7 +113,9 @@ export default function Bookmarks() {
                     )}
                   </div>
                   <h3 className="font-serif font-bold text-lg text-brand-primary leading-snug mb-4 group-hover:text-brand-primary-container">{article.title}</h3>
-                  <div className="mt-auto flex items-center justify-between border-t border-brand-outline-variant pt-3">
+                  <SentimentIndicator title={article.title} content={article.content || ''} />
+                  <AITagsIndicator title={article.title} content={article.content || ''} fallbackTags={article.tags} />
+                  <div className="mt-auto flex items-center justify-between border-t border-brand-outline-variant pt-3 mt-4">
                     <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold">
                       <Verified size={12} /> VERIFIED
                     </div>
@@ -104,10 +135,14 @@ export default function Bookmarks() {
 
       <ReadingModeModal 
         article={readingArticle}
+        allArticles={bookmarks}
         isOpen={!!readingArticle}
         onClose={() => setReadingArticle(null)}
         copiedId={copiedId}
-        onShare={handleShare}
+        onShare={(e, id) => {
+          const article = bookmarks.find(a => a.id === id);
+          handleShare(e, id, article?.title || '');
+        }}
       />
     </div>
   );

@@ -1,6 +1,39 @@
-import { Play, Plus, Activity, MapPin, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { Play, Plus, Activity, MapPin, CheckCircle2, XCircle, Info, Search, ShieldAlert, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+
+const mockArticleContent = `At approximately 08:45 AM local time, witnesses reported a "significant structural failure" on the lower mezzanine level of the Northern District Central Metro station. Initial reports suggest that a secondary support beam may have buckled under heavy vibration from a passing express train.
+"The sound was like thunder underground," says Mark Thomason, a commuter on the platform. "Dust started falling from the ceiling immediately, and security began an emergency evacuation within seconds."
+Local authorities have cordoned off the area. No casualties have been confirmed, but transit through the northern corridor is suspended indefinitely. This report was submitted by citizen journalist @UrbanSentinel using a Trust-Link mobile relay.`;
 
 export default function Verification() {
+  const [factCheckState, setFactCheckState] = useState<'idle' | 'loading' | 'done'>('idle');
+  const [factCheckResult, setFactCheckResult] = useState<string | null>(null);
+  const [factCheckSources, setFactCheckSources] = useState<string[]>([]);
+
+  const handleFactCheck = async () => {
+    setFactCheckState('loading');
+    try {
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: "Infrastructure Collapse in Northern District Metro",
+          content: mockArticleContent
+        })
+      });
+      const data = await res.json();
+      setFactCheckResult(data.result);
+      setFactCheckSources(data.sources || []);
+    } catch (err) {
+      console.error(err);
+      setFactCheckResult("Verification failed.");
+    } finally {
+      setFactCheckState('done');
+    }
+  };
+
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-64px)] overflow-hidden bg-brand-surface ">
       
@@ -75,7 +108,7 @@ export default function Verification() {
       </div>
 
       {/* Right Pane: AI Report & Voting */}
-      <div className="w-full lg:w-1/2 bg-[#f8fafc] p-6 lg:p-10 lg:pl-8 flex flex-col overflow-y-auto">
+      <div className="w-full lg:w-1/2 bg-brand-surface-low p-6 lg:p-10 lg:pl-8 flex flex-col overflow-y-auto">
         <div className="max-w-xl mx-auto w-full flex-1 flex flex-col space-y-8">
           
           <div className="flex justify-between items-center">
@@ -87,8 +120,42 @@ export default function Verification() {
             </div>
           </div>
 
+          {/* Grounding Search */}
+          <div className="bg-brand-secondary-container/20 p-5 rounded-xl border border-brand-secondary/30">
+            <h3 className="font-bold flex items-center gap-2 mb-2 text-brand-primary">
+              <Search size={18} /> Deep Search Grounding
+            </h3>
+            {factCheckState === 'idle' && (
+              <button onClick={handleFactCheck} className="bg-brand-surface-lowest border border-brand-outline px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand-surface transition-colors mt-2 text-brand-primary">
+                Verify With Live Web Search
+              </button>
+            )}
+            {factCheckState === 'loading' && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader2 className="animate-spin" size={16} /> Scanning global news sources...
+              </div>
+            )}
+            {factCheckState === 'done' && (
+              <div className="mt-3">
+                <div className="bg-brand-surface-lowest p-4 rounded-lg border border-brand-outline-variant text-sm text-brand-primary whitespace-pre-wrap leading-relaxed shadow-sm">
+                  {factCheckResult}
+                </div>
+                {factCheckSources.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Sources Examined</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {factCheckSources.map((source, idx) => (
+                        <li key={idx}><a href={source} target="_blank" rel="noreferrer" className="text-brand-secondary hover:underline text-xs break-all">{source}</a></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+            <div className="bg-brand-surface-lowest p-5 rounded-xl border border-brand-outline shadow-sm">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Plagiarism Match</p>
               <h3 className="text-3xl font-bold text-brand-primary mb-3">4.2%</h3>
               <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mb-2">
@@ -97,7 +164,7 @@ export default function Verification() {
               <p className="text-xs text-gray-400 italic">Unique content. No external matches found.</p>
             </div>
             
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+            <div className="bg-brand-surface-lowest p-5 rounded-xl border border-brand-outline shadow-sm">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Deepfake Risk</p>
               <h3 className="text-3xl font-bold text-brand-error mb-3">12.5%</h3>
               <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mb-2">
@@ -106,7 +173,7 @@ export default function Verification() {
               <p className="text-xs text-gray-400 italic">Low risk of synthesis detected in frames 24-90.</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm block col-span-2">
+            <div className="bg-brand-surface-lowest p-5 rounded-xl border border-brand-outline shadow-sm block col-span-2">
               <div className="flex justify-between">
                 <div>
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Geofencing & Metadata</p>
@@ -124,14 +191,14 @@ export default function Verification() {
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm block col-span-2">
+            <div className="bg-brand-surface-lowest p-5 rounded-xl border border-brand-outline shadow-sm block col-span-2">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Integrity Log</p>
               <div className="space-y-3 font-mono text-xs">
-                <div className="flex justify-between border-b border-gray-100 pb-2">
+                <div className="flex justify-between border-b border-brand-outline-variant pb-2">
                   <span className="text-gray-500 font-sans font-medium">Capture Date Hash</span>
                   <span className="text-brand-primary font-semibold">Valid (SHA-256)</span>
                 </div>
-                <div className="flex justify-between border-b border-gray-100 pb-2">
+                <div className="flex justify-between border-b border-brand-outline-variant pb-2">
                   <span className="text-gray-500 font-sans font-medium">Exif Modification Tag</span>
                   <span className="text-brand-primary font-semibold">None Detected</span>
                 </div>
@@ -160,19 +227,19 @@ export default function Verification() {
           </div>
 
           {/* Voting Action Box */}
-          <div className="bg-white p-8 rounded-2xl border-2 border-brand-primary/10 shadow-xl mt-auto relative overflow-hidden">
+          <div className="bg-brand-surface-lowest p-8 rounded-2xl border-2 border-brand-primary/10 shadow-xl mt-auto relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary via-brand-secondary-container to-brand-primary"></div>
             <h4 className="text-center text-xs font-bold text-brand-primary uppercase tracking-widest mb-6">Cast Your Final Verification</h4>
             
-            <button className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all shadow-md mb-4 text-sm">
-              <CheckCircle2 size={20} fill="currentColor" className="text-white/20" /> Approve Report
+            <button className="w-full bg-brand-primary text-brand-surface-lowest py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all shadow-md mb-4 text-sm">
+              <CheckCircle2 size={20} fill="currentColor" className="opacity-20" /> Approve Report
             </button>
             
             <div className="grid grid-cols-2 gap-4">
-              <button className="py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-gray-50 active:scale-95 transition-all text-sm">
+              <button className="py-3 border-2 border-brand-outline text-brand-primary rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-brand-surface transition-all text-sm">
                 <Info size={18} /> Request Info
               </button>
-              <button className="py-3 border-2 border-brand-error/20 text-brand-error rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-red-50 active:scale-95 transition-all text-sm">
+              <button className="py-3 border-2 border-brand-error/20 text-brand-error rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-brand-error/10 active:scale-95 transition-all text-sm">
                 <XCircle size={18} /> Reject Report
               </button>
             </div>

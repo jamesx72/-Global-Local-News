@@ -8,9 +8,35 @@ import Verification from './views/Verification';
 import Bookmarks from './views/Bookmarks';
 import Recent from './views/Recent';
 import Settings from './views/Settings';
+import ReminderToast from './components/ReminderToast';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('home');
+
+  useEffect(() => {
+    const applyTypography = () => {
+      let typography = 'classic';
+      try {
+        const saved = window.localStorage.getItem('app_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.typography) typography = parsed.typography;
+        }
+      } catch (e) {
+        // ignore
+      }
+      
+      document.documentElement.classList.remove('typography-classic', 'typography-modern', 'typography-editorial');
+      document.documentElement.classList.add(`typography-${typography}`);
+    };
+
+    applyTypography();
+    window.addEventListener('app_settings_changed', applyTypography);
+    
+    return () => {
+      window.removeEventListener('app_settings_changed', applyTypography);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -63,6 +89,7 @@ export default function App() {
           {renderView()}
         </motion.div>
       </AnimatePresence>
+      <ReminderToast setCurrentView={setCurrentView} />
     </Layout>
   );
 }

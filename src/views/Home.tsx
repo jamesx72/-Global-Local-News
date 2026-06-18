@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { MapPin, ZoomIn, Globe, Verified, ArrowRight, Info, CheckCircle2, AlertTriangle, ExternalLink, ShieldCheck, Bookmark, BookmarkCheck, Share2, Maximize2, Clock, RefreshCw } from 'lucide-react';
 import { useBookmarks, Article } from '../hooks/useBookmarks';
+import { useSearch } from '../hooks/useSearch';
 import ReadingModeModal from '../components/ReadingModeModal';
+import SentimentIndicator from '../components/SentimentIndicator';
+import AITagsIndicator from '../components/AITagsIndicator';
+import { handleShareAction } from '../utils/share';
 
 const TRENDING_ARTICLES: Article[] = [
   {
@@ -39,6 +43,19 @@ export default function Home() {
   const [readingArticle, setReadingArticle] = useState<Article | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [articles, setArticles] = useState<Article[]>(TRENDING_ARTICLES);
+  const { searchQuery } = useSearch();
+
+  const filteredArticles = articles.filter(article => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      article.title.toLowerCase().includes(q) ||
+      (article.content && article.content.toLowerCase().includes(q)) ||
+      (article.tags && article.tags.some(tag => tag.toLowerCase().includes(q))) ||
+      article.location.toLowerCase().includes(q) ||
+      article.category.toLowerCase().includes(q)
+    );
+  });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -83,10 +100,8 @@ export default function Home() {
     return () => clearInterval(autoFetchInterval);
   }, []);
 
-  const handleShare = (e: React.SyntheticEvent | KeyboardEvent | null, id: string) => {
-    if (e && e.stopPropagation) e.stopPropagation();
-    const url = `${window.location.origin}/article/${id}`;
-    navigator.clipboard.writeText(url).then(() => {
+  const handleShare = (e: React.SyntheticEvent | KeyboardEvent | null, articleId: string, articleTitle: string) => {
+    handleShareAction(e, articleId, articleTitle, (id) => {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     });
@@ -157,9 +172,14 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TRENDING_ARTICLES.map((article) => {
-            const bookmarked = isBookmarked(article.id);
-            return (
+          {filteredArticles.length === 0 ? (
+            <div className="col-span-full py-12 text-center text-gray-500">
+              No articles match your search.
+            </div>
+          ) : (
+            filteredArticles.map((article) => {
+              const bookmarked = isBookmarked(article.id);
+              return (
               <article 
                 key={article.id} 
                 className="bg-brand-surface-lowest rounded-xl shadow-sm border border-brand-outline-variant overflow-hidden flex flex-col hover:shadow-md transition-shadow group cursor-pointer"
@@ -171,7 +191,7 @@ export default function Home() {
                   <div className="absolute top-3 left-3 bg-brand-secondary-container text-brand-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">{article.category}</div>
                   <div className="absolute top-3 right-3 flex gap-2">
                     <button 
-                      onClick={(e) => handleShare(e, article.id)}
+                      onClick={(e) => handleShare(e, article.id, article.title)}
                       className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors"
                       title="Share Article"
                     >
@@ -203,15 +223,8 @@ export default function Home() {
                     )}
                   </div>
                   <h3 className="font-serif font-bold text-lg text-brand-primary leading-snug mb-4 group-hover:text-brand-primary-container">{article.title}</h3>
-                  {article.tags && article.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {article.tags.map((tag, idx) => (
-                        <span key={idx} className="bg-brand-surface-low text-brand-primary px-2 py-1 rounded text-xs font-medium border border-brand-outline-variant">
-                          #{tag.toUpperCase()}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <SentimentIndicator title={article.title} content={article.content || ''} />
+                  <AITagsIndicator title={article.title} content={article.content || ''} fallbackTags={article.tags} />
                   <div className="mt-auto flex items-center justify-between border-t border-brand-outline-variant pt-3">
                     <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold">
                       <Verified size={12} /> VERIFIED
@@ -226,7 +239,8 @@ export default function Home() {
                 </div>
               </article>
             );
-          })}
+          })
+          )}
         </div>
       </section>
 
@@ -294,7 +308,10 @@ export default function Home() {
         isOpen={!!readingArticle}
         onClose={() => setReadingArticle(null)}
         copiedId={copiedId}
-        onShare={handleShare}
+        onShare={(e, id) => {
+          const article = [...TRENDING_ARTICLES, ...articles].find(a => a.id === id);
+          handleShare(e, id, article?.title || '');
+        }}
       />
     </div>
   );

@@ -1,0 +1,53 @@
+{
+  "collections": [
+    {
+      "name": "users",
+      "document": {
+        "fields": [
+          { "name": "uid", "type": "string" },
+          { "name": "email", "type": "string" },
+          { "name": "displayName", "type": "string" },
+          { "name": "createdAt", "type": "timestamp" }
+        ]
+      },
+      "subcollections": [
+        {
+          "name": "bookmarks",
+          "document": {
+            "fields": [
+              { "name": "articleId", "type": "string" },
+              { "name": "title", "type": "string" },
+              { "name": "category", "type": "string" },
+              { "name": "location", "type": "string" },
+              { "name": "imageUrl", "type": "string" },
+              { "name": "trustScore", "type": "number" },
+              { "name": "timestamp", "type": "string" },
+              { "name": "content", "type": "string" },
+              { "name": "readingTime", "type": "number" },
+              { "name": "tags", "type": "array", "items": "string" },
+              { "name": "savedAt", "type": "timestamp" }
+            ]
+          }
+        },
+        {
+          "name": "recentArticles",
+          "document": {
+            "fields": [
+              { "name": "articleId", "type": "string" },
+              { "name": "title", "type": "string" },
+              { "name": "category", "type": "string" },
+              { "name": "location", "type": "string" },
+              { "name": "imageUrl", "type": "string" },
+              { "name": "trustScore", "type": "number" },
+              { "name": "timestamp", "type": "string" },
+              { "name": "content", "type": "string" },
+              { "name": "readingTime", "type": "number" },
+              { "name": "tags", "type": "array", "items": "string" },
+              { "name": "viewedAt", "type": "timestamp" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -15,6 +15,7 @@ interface SettingsState {
     showLocation: boolean;
   };
   language: string;
+  typography: string;
 }
 
 export default function Settings() {
@@ -36,7 +37,8 @@ export default function Settings() {
           profileVisible: true,
           showLocation: false
         },
-        language: 'en'
+        language: 'en',
+        typography: 'classic'
       };
     } catch (e) {
       return {
@@ -45,7 +47,8 @@ export default function Settings() {
         bio: '',
         notifications: { email: true, push: false, newsletter: true },
         privacy: { profileVisible: true, showLocation: false },
-        language: 'en'
+        language: 'en',
+        typography: 'classic'
       };
     }
   });
@@ -53,6 +56,7 @@ export default function Settings() {
   useEffect(() => {
     try {
       window.localStorage.setItem('app_settings', JSON.stringify(settings));
+      window.dispatchEvent(new Event('app_settings_changed'));
     } catch (e) {
       console.error('Error saving settings', e);
     }
@@ -235,16 +239,29 @@ export default function Settings() {
                 
                 <div className="grid gap-6">
                   <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-[0.2em] text-white/50 block">Typography Settings</label>
+                    <select 
+                      value={settings.typography}
+                      onChange={(e) => setSettings({...settings, typography: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-brand-secondary transition-colors text-white appearance-none"
+                    >
+                      <option value="classic" className="bg-[#0A0A0A]">Classic (Merriweather & Inter)</option>
+                      <option value="modern" className="bg-[#0A0A0A]">Modern (Playfair Display & Lato)</option>
+                      <option value="editorial" className="bg-[#0A0A0A]">Editorial (Lora & Source Sans 3)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-[10px] uppercase tracking-[0.2em] text-white/50 block">Interface Language</label>
                     <select 
                       value={settings.language}
                       onChange={(e) => setSettings({...settings, language: e.target.value})}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-brand-secondary transition-colors text-white appearance-none"
                     >
-                      <option value="en">English (EN)</option>
-                      <option value="fr">Français (FR)</option>
-                      <option value="de">Deutsch (DE)</option>
-                      <option value="ja">日本語 (JA)</option>
+                      <option value="en" className="bg-[#0A0A0A]">English (EN)</option>
+                      <option value="fr" className="bg-[#0A0A0A]">Français (FR)</option>
+                      <option value="de" className="bg-[#0A0A0A]">Deutsch (DE)</option>
+                      <option value="ja" className="bg-[#0A0A0A]">日本語 (JA)</option>
                     </select>
                   </div>
 

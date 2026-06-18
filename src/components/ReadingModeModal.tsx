@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square } from 'lucide-react';
 import { Article, useBookmarks } from '../hooks/useBookmarks';
 import { useRecentArticles } from '../hooks/useRecentArticles';
 
@@ -29,6 +29,24 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
   const { isBookmarked, toggleBookmark } = useBookmarks();
   const { addRecentArticle } = useRecentArticles();
 
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  React.useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setIsPaused(false);
+    }
+  }, [isOpen]);
+
   const articleContent = article?.content || `
     The recent developments surrounding ${article?.title?.toLowerCase()} represent a significant turning point in global dynamics. Experts point to multiple cascading effects that reach far beyond initial projections, particularly concerning infrastructure sustainability and socioeconomic patterns.
     
@@ -39,11 +57,18 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
     "This is not just an incremental update," noted a leading analyst during the latest briefing. "It's a structural transformation that demands we rethink our foundational assumptions." Wait times for additional disclosures are expected to be short as the implementation quickly scales.
   `;
 
+  const [targetLanguage, setTargetLanguage] = useState<string>('English');
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+
   React.useEffect(() => {
     if (isOpen && article) {
       setScrollProgress(0);
       setSummary(null);
       setIsSummarizing(false);
+      setTargetLanguage('English');
+      setTranslatedContent(null);
+      setIsTranslating(false);
       addRecentArticle(article);
 
       try {
@@ -110,6 +135,95 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
   const increaseFontSize = () => setFontSize(prev => Math.min(prev + 2, 32));
   const decreaseFontSize = () => setFontSize(prev => Math.max(prev - 2, 12));
 
+  const LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Arabic', 'Hindi', 'Portuguese', 'Italian'];
+
+  const handleLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const lang = e.target.value;
+    setTargetLanguage(lang);
+    
+    if (lang === 'English') {
+      setTranslatedContent(null);
+      return;
+    }
+
+    if (!articleContent) return;
+
+    setIsTranslating(true);
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: articleContent, targetLanguage: lang }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTranslatedContent(data.translatedText);
+      } else {
+        setTranslatedContent(null);
+        setTargetLanguage('English');
+      }
+    } catch (error) {
+      console.error("Translation failed:", error);
+      setTranslatedContent(null);
+      setTargetLanguage('English');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleToggleAudio = () => {
+    const textToSpeak = translatedContent || articleContent;
+    if (!textToSpeak) return;
+
+    if (isPlaying) {
+      if (isPaused) {
+        window.speechSynthesis.resume();
+        setIsPaused(false);
+      } else {
+        window.speechSynthesis.pause();
+        setIsPaused(true);
+      }
+    } else {
+      const utterance = new SpeechSynthesisUtterance(`${article?.title ?? ''}. ${textToSpeak}`);
+      utterance.rate = playbackRate;
+      utterance.onend = () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+      };
+      window.speechSynthesis.speak(utterance);
+      setIsPlaying(true);
+      setIsPaused(false);
+    }
+  };
+
+  const handleStopAudio = () => {
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
+    setIsPaused(false);
+  };
+
+  const cycleSpeed = () => {
+    setPlaybackRate(prev => {
+      const next = prev >= 2 ? 0.5 : prev + 0.25;
+      if (isPlaying) {
+        window.speechSynthesis.cancel();
+        const textToSpeak = translatedContent || articleContent;
+        const utterance = new SpeechSynthesisUtterance(`${article?.title ?? ''}. ${textToSpeak}`);
+        utterance.rate = next;
+        utterance.onend = () => {
+          setIsPlaying(false);
+          setIsPaused(false);
+        };
+        window.speechSynthesis.speak(utterance);
+        if (isPaused) {
+          window.speechSynthesis.pause();
+        }
+      }
+      return next;
+    });
+  };
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     const maxScroll = scrollHeight - clientHeight;
@@ -175,6 +289,31 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
             <button onClick={increaseFontSize} className="p-2 rounded-full hover:bg-white/10 text-white/70 transition-colors" title="Increase Font Size">
               <ZoomIn size={18} />
             </button>
+            <div className="w-px h-6 bg-white/10 mx-2"></div>
+            <button onClick={handleToggleAudio} className="p-2 rounded-full hover:bg-white/10 text-brand-secondary transition-colors" title={isPlaying && !isPaused ? "Pause Audio" : "Play Audio"}>
+              {isPlaying && !isPaused ? <Pause size={18} /> : <Play size={18} />}
+            </button>
+            {isPlaying && (
+              <button onClick={handleStopAudio} className="p-2 rounded-full hover:bg-white/10 text-brand-error transition-colors" title="Stop Audio">
+                <Square size={18} />
+              </button>
+            )}
+            <button onClick={cycleSpeed} className="p-2 rounded-full hover:bg-white/10 text-brand-secondary transition-colors font-mono text-xs w-10 overflow-hidden" title="Playback Speed">
+              {playbackRate}x
+            </button>
+            <div className="w-px h-6 bg-white/10 mx-2"></div>
+            <select
+              value={targetLanguage}
+              onChange={handleLanguageChange}
+              disabled={isTranslating}
+              className="bg-transparent text-xs text-white/70 border border-white/20 rounded p-1 outline-none focus:border-brand-secondary w-24"
+            >
+              <option value="English" className="bg-[#0A0A0A]">Original</option>
+              {LANGUAGES.filter(l => l !== 'English').map(lang => (
+                <option key={lang} value={lang} className="bg-[#0A0A0A]">{lang}</option>
+              ))}
+            </select>
+            {isTranslating && <span className="text-xs text-brand-secondary animate-pulse ml-1 opacity-70">Translating...</span>}
           </div>
           
           <div className="flex items-center gap-2">
@@ -228,14 +367,21 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
                            disabled={isSummarizing}
                            className="text-xs bg-brand-secondary text-brand-surface-lowest px-3 py-1.5 rounded-full font-semibold hover:bg-white transition-colors disabled:opacity-50"
                          >
-                           {isSummarizing ? "Generating..." : "Generate Summary"}
+                           {isSummarizing ? "Summarizing..." : "Summarize"}
                          </button>
                        )}
                     </div>
                     {summary ? (
-                      <p className="text-white/90 text-sm italic border-l-2 border-brand-secondary/40 pl-3 py-1">"{summary}"</p>
+                      <div className="text-brand-primary text-sm space-y-2 mt-3 pl-2">
+                        {summary.split('\n').filter(line => line.trim().length > 0).map((bullet, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="text-brand-secondary mt-1 text-[10px]">■</span>
+                            <span>{bullet.replace(/^-\s*/, '').trim()}</span>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
-                      <p className="text-white/50 text-sm">Use Gemini API to instantly generate a one-sentence overview of this report.</p>
+                      <p className="text-white/50 text-sm">Use Gemini API to instantly generate a quick, bulleted summary of this report.</p>
                     )}
                   </div>
                 </div>
@@ -252,7 +398,7 @@ export default function ReadingModeModal({ article, allArticles, isOpen, onClose
               className="font-sans text-white/80 leading-relaxed font-light" 
               style={{ fontSize: `${fontSize}px` }}
             >
-              {articleContent.split('\n\n').map((paragraph, idx) => (
+              {(translatedContent || articleContent).split('\n\n').map((paragraph, idx) => (
                 <p key={idx} className="mb-6">{paragraph.trim()}</p>
               ))}
             </div>

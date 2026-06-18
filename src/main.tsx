@@ -1,10 +1,20 @@
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { AuthProvider } from './hooks/useAuth.tsx';
+import { SearchProvider } from './hooks/useSearch.tsx';
+import { ThemeProvider } from './hooks/useTheme.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <SearchProvider>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </SearchProvider>
+    </AuthProvider>
   </StrictMode>,
 );
+

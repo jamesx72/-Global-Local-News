@@ -1,5 +1,8 @@
 import React, { ReactNode, useState } from 'react';
-import { Home, ShieldCheck, FileText, Wallet, Users, Settings, Search, Bell, PlusCircle, CheckSquare, Bookmark, History } from 'lucide-react';
+import { Home, ShieldCheck, FileText, Wallet, Users, Settings, Search, Bell, PlusCircle, CheckSquare, Bookmark, History, LogIn, LogOut, Sun, Moon } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { useSearch } from '../hooks/useSearch';
+import { useTheme } from '../hooks/useTheme';
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +12,9 @@ interface LayoutProps {
 
 export default function Layout({ children, currentView, setCurrentView }: LayoutProps) {
   const isVerification = currentView === 'verification';
+  const { user, signInWithGoogle, logout } = useAuth();
+  const { searchQuery, setSearchQuery } = useSearch();
+  const { theme, toggleTheme } = useTheme();
 
   const mainNav = [
     { id: 'home', icon: <Home size={20} />, label: 'Home' },
@@ -23,13 +29,22 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
   ];
 
   return (
-    <div className="min-h-screen flex flex-col font-sans">
+    <div className="min-h-screen flex flex-col font-sans bg-brand-surface text-brand-primary">
       {/* Header */}
       <header className="bg-brand-surface-lowest h-16 border-b border-brand-outline-variant sticky top-0 z-50 flex items-center justify-between px-6">
         <div className="flex items-center gap-8">
-          <h1 className="font-serif text-2xl font-bold text-brand-primary cursor-pointer" onClick={() => setCurrentView('home')}>
-            Global Local News
-          </h1>
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('home')}>
+            <div className="w-9 h-9 bg-brand-primary rounded-lg flex items-center justify-center shadow-sm group-hover:bg-brand-primary-container transition-colors">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <path d="M2 12h20"></path>
+              </svg>
+            </div>
+            <h1 className="font-serif text-2xl font-bold text-brand-primary tracking-tight">
+              Global Local News
+            </h1>
+          </div>
           <nav className="hidden md:flex gap-6 text-sm">
             <a href="#" className="font-semibold text-brand-primary border-b-2 border-brand-primary pb-[22px] translate-y-[11px]">World</a>
             <a href="#" className="text-gray-500 hover:text-brand-primary transition-colors cursor-pointer">Local</a>
@@ -41,22 +56,47 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
         <div className="flex items-center gap-4">
           <div className="hidden xl:flex items-center bg-brand-surface-low rounded-full px-4 py-1.5 gap-2 border border-brand-outline-variant">
             <Search size={18} className="text-gray-400" />
-            <input type="text" placeholder="Search global reports..." className="bg-transparent text-sm focus:outline-none w-48" />
+            <input 
+              type="text" 
+              placeholder="Search global reports, tags..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent text-sm focus:outline-none w-48 text-brand-primary" 
+            />
           </div>
           {!isVerification && (
             <button
               onClick={() => setCurrentView('contributor')}
-              className="hidden md:flex items-center gap-2 bg-brand-primary text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-brand-primary-container transition-colors">
+              className="hidden md:flex items-center gap-2 bg-brand-primary text-white border border-brand-outline-variant px-4 py-2 rounded-md text-sm font-semibold hover:opacity-90 transition-colors">
               <PlusCircle size={18} /> Report Breaking News
             </button>
           )}
+          
+          <button 
+            onClick={toggleTheme}
+            className="text-gray-500 hover:text-brand-primary transition-colors relative p-1"
+            title={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
           <button className="text-gray-500 hover:text-brand-primary transition-colors relative p-1">
             <Bell size={20} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-brand-error rounded-full block border-2 border-white"></span>
+            <span className="absolute top-1 right-1 w-2 h-2 bg-brand-error rounded-full block border-2 border-brand-surface-lowest"></span>
           </button>
-          <div className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden border border-brand-outline cursor-pointer ml-1">
-            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="Avatar" className="w-full h-full object-cover" />
-          </div>
+          
+          {user ? (
+            <div className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden border border-brand-outline cursor-pointer ml-1 relative group">
+              <img src={user.photoURL || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"} alt="Avatar" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/60 hidden group-hover:flex items-center justify-center text-white" onClick={logout} title="Sign out">
+                <LogOut size={16} />
+              </div>
+            </div>
+          ) : (
+            <button onClick={signInWithGoogle} className="ml-2 flex items-center gap-2 bg-brand-surface-lowest text-brand-primary hover:bg-brand-surface-low border border-brand-outline px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
+              <LogIn size={16} /> Sign In
+            </button>
+          )}
         </div>
       </header>
 
@@ -65,12 +105,12 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
         <aside className="w-64 bg-brand-surface-low border-r border-brand-outline-variant flex-shrink-0 hidden lg:flex flex-col p-4 overflow-y-auto">
           <div className="mb-6 bg-brand-surface-lowest p-3 rounded-xl border border-brand-outline-variant shadow-sm">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-brand-secondary-container rounded-full flex items-center justify-center text-brand-secondary flex-shrink-0">
-                <Users size={20} />
+              <div className="w-10 h-10 bg-brand-secondary-container rounded-full flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden">
+                {user?.photoURL ? <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" /> : <Users size={20} />}
               </div>
               <div className="overflow-hidden">
-                <h3 className="font-semibold text-sm text-brand-primary truncate">Citizen Reporter</h3>
-                <div className="text-xs font-bold text-brand-secondary">Trust Score: 98</div>
+                <h3 className="font-semibold text-sm text-brand-primary truncate">{user ? user.displayName : "Citizen Reporter"}</h3>
+                <div className="text-xs font-bold text-brand-secondary">Trust Score: {user ? '120' : '98'}</div>
               </div>
             </div>
           </div>
@@ -112,6 +152,7 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
     </div>
   );
 }
+
 
 function NewsletterWidget() {
   const [email, setEmail] = useState('');

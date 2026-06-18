@@ -1,45 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Brand mappings - Elegant Dark */
-  --color-brand-primary: #F5F5F5;
-  --color-brand-primary-container: rgba(255, 255, 255, 0.1);
-  --color-brand-secondary: #D4AF37;
-  --color-brand-secondary-container: rgba(212, 175, 55, 0.1);
-  --color-brand-surface: #0A0A0A;
-  --color-brand-surface-low: #080808;
-  --color-brand-surface-lowest: #1A1A1A;
-  --color-brand-outline: rgba(255, 255, 255, 0.15);
-  --color-brand-outline-variant: rgba(255, 255, 255, 0.05);
-  --color-brand-error: #ef4444;
-  --color-brand-success: #22c55e;
+  /* Semantic mappings using variables so we can swap them */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-container: var(--brand-primary-container);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-container: var(--brand-secondary-container);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-low: var(--brand-surface-low);
+  --color-brand-surface-lowest: var(--brand-surface-lowest);
+  --color-brand-outline: var(--brand-outline);
+  --color-brand-outline-variant: var(--brand-outline-variant);
+  --color-brand-error: var(--brand-error);
+  --color-brand-success: var(--brand-success);
 
-  /* Tailwind mappings to dark mode equivalents */
-  --color-white: #151515; 
-  --color-black: #F5F5F5;
+  --color-white: var(--local-white); 
+  --color-black: var(--local-black);
   
-  --color-gray-50: rgba(255, 255, 255, 0.02);
-  --color-gray-100: rgba(255, 255, 255, 0.05);
-  --color-gray-200: rgba(255, 255, 255, 0.08); /* changed to darker for borders */
-  --color-gray-300: rgba(255, 255, 255, 0.15);
-  --color-gray-400: rgba(255, 255, 255, 0.3);
-  --color-gray-500: rgba(255, 255, 255, 0.4);
-  --color-gray-600: rgba(255, 255, 255, 0.5);
-  --color-gray-700: rgba(255, 255, 255, 0.6);
-  --color-gray-800: rgba(255, 255, 255, 0.8);
-  --color-gray-900: #F5F5F5;
-  
-  --color-blue-100: rgba(255, 255, 255, 0.4);
-  --color-blue-200: rgba(255, 255, 255, 0.6);
-  --color-blue-900: rgba(255, 255, 255, 0.05);
+  --color-gray-50: var(--local-gray-50);
+  --color-gray-100: var(--local-gray-100);
+  --color-gray-200: var(--local-gray-200);
+  --color-gray-300: var(--local-gray-300);
+  --color-gray-400: var(--local-gray-400);
+  --color-gray-500: var(--local-gray-500);
+  --color-gray-600: var(--local-gray-600);
+  --color-gray-700: var(--local-gray-700);
+  --color-gray-800: var(--local-gray-800);
+  --color-gray-900: var(--local-gray-900);
 
   --font-serif: "Merriweather", serif;
   --font-sans: "Inter", sans-serif;
 }
 
+:root {
+  /* Brand mappings - Elegant Dark */
+  --brand-primary: #F5F5F5;
+  --brand-primary-container: rgba(255, 255, 255, 0.1);
+  --brand-secondary: #D4AF37;
+  --brand-secondary-container: rgba(212, 175, 55, 0.1);
+  --brand-surface: #0A0A0A;
+  --brand-surface-low: #080808;
+  --brand-surface-lowest: #1A1A1A;
+  --brand-outline: rgba(255, 255, 255, 0.15);
+  --brand-outline-variant: rgba(255, 255, 255, 0.05);
+  --brand-error: #ef4444;
+  --brand-success: #22c55e;
+
+  /* Tailwind mappings to dark mode equivalents */
+  --local-white: #151515; 
+  --local-black: #F5F5F5;
+  
+  --local-gray-50: rgba(255, 255, 255, 0.02);
+  --local-gray-100: rgba(255, 255, 255, 0.05);
+  --local-gray-200: rgba(255, 255, 255, 0.08); /* changed to darker for borders */
+  --local-gray-300: rgba(255, 255, 255, 0.15);
+  --local-gray-400: rgba(255, 255, 255, 0.3);
+  --local-gray-500: rgba(255, 255, 255, 0.4);
+  --local-gray-600: rgba(255, 255, 255, 0.5);
+  --local-gray-700: rgba(255, 255, 255, 0.6);
+  --local-gray-800: rgba(255, 255, 255, 0.8);
+  --local-gray-900: #F5F5F5;
+}
+
+.theme-light {
+  /* Brand mappings - Classic Newspaper */
+  --brand-primary: #111111;
+  --brand-primary-container: rgba(17, 17, 17, 0.1);
+  --brand-secondary: #B22222; /* Firebrick red */
+  --brand-secondary-container: rgba(178, 34, 34, 0.1);
+  --brand-surface: #F4F1EB; /* Old paper */
+  --brand-surface-low: #EBE5D8;
+  --brand-surface-lowest: #FFFFFF;
+  --brand-outline: rgba(0, 0, 0, 0.15);
+  --brand-outline-variant: rgba(0, 0, 0, 0.05);
+
+  --local-white: #FFFFFF;
+  --local-black: #111111;
+
+  --local-gray-50: #f9fafb;
+  --local-gray-100: #f3f4f6;
+  --local-gray-200: #e5e7eb;
+  --local-gray-300: #d1d5db;
+  --local-gray-400: #9ca3af;
+  --local-gray-500: #6b7280;
+  --local-gray-600: #4b5563;
+  --local-gray-700: #374151;
+  --local-gray-800: #1f2937;
+  --local-gray-900: #111827;
+}
+
+.typography-classic {
+  --font-serif: "Merriweather", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+.typography-modern {
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Lato", sans-serif;
+}
+
+.typography-editorial {
+  --font-serif: "Lora", serif;
+  --font-sans: "Source Sans 3", sans-serif;
+}
+
 body {
-  background-color: var(--color-brand-surface);
-  color: #F5F5F5;
+  background-color: var(--brand-surface);
+  color: var(--brand-primary);
   font-family: var(--font-sans);
   letter-spacing: 0.03em;
 }
@@ -66,13 +134,13 @@ button {
 }
 
 input, textarea {
-  background-color: rgba(255, 255, 255, 0.02) !important;
-  color: #F5F5F5 !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--local-gray-50) !important;
+  color: var(--brand-primary) !important;
+  border-color: var(--brand-outline) !important;
 }
 
 ::placeholder {
-  color: rgba(255, 255, 255, 0.3) !important;
+  color: var(--local-gray-400) !important;
   font-style: italic;
 }
 
@@ -81,18 +149,33 @@ input, textarea {
   box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.8) !important;
 }
 
+.theme-light .shadow-sm, 
+.theme-light .shadow-md, 
+.theme-light .shadow-lg, 
+.theme-light .shadow-xl {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
 /* Mute green and red text for dark mode */
 .text-green-600 { color: #22c55e !important; }
 .text-green-700, .text-green-800 { color: #4ade80 !important; }
 .bg-green-50, .bg-green-100 { background-color: rgba(74, 222, 128, 0.1) !important; border: 1px solid rgba(74, 222, 128, 0.2) !important; }
 .bg-green-600 { background-color: #16a34a !important; color: #fff !important; }
 
+.theme-light .text-green-600 { color: #16a34a !important; }
+.theme-light .text-green-700, .theme-light .text-green-800 { color: #15803d !important; }
+.theme-light .bg-green-600 { color: #fff !important; }
+
 .text-red-500 { color: #f87171 !important; }
 .text-red-700 { color: #fca5a5 !important; }
 .bg-red-50 { background-color: rgba(248, 113, 113, 0.1) !important; }
 .bg-red-500 { background-color: #dc2626 !important; color: #fff !important; }
 
+.theme-light .text-red-500 { color: #ef4444 !important; }
+.theme-light .text-red-700 { color: #b91c1c !important; }
+
 .border-yellow-200 { border-color: rgba(212, 175, 55, 0.3) !important; }
+.theme-light .border-yellow-200 { border-color: rgba(178, 34, 34, 0.3) !important; }
 
 /* Elegant Typography & Layout Tweaks */
 header h1 {
@@ -106,16 +189,16 @@ header nav a {
   text-transform: uppercase !important;
   font-size: 11px !important;
   letter-spacing: 0.2em !important;
-  color: rgba(255, 255, 255, 0.5) !important;
+  color: var(--local-gray-500) !important;
 }
 
 header nav a:hover {
-  color: #F5F5F5 !important;
+  color: var(--brand-primary) !important;
 }
 
 header nav a.border-b-2 {
-  color: #F5F5F5 !important;
-  border-bottom-color: #F5F5F5 !important;
+  color: var(--brand-primary) !important;
+  border-bottom-color: var(--brand-primary) !important;
   border-bottom-width: 1px !important;
 }
 
@@ -124,3 +207,4 @@ header nav a.border-b-2 {
   letter-spacing: 0.3em !important;
   font-size: 10px !important;
 }
+
