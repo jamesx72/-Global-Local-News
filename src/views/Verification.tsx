@@ -2,7 +2,7 @@ import { Play, Plus, Activity, MapPin, CheckCircle2, XCircle, Info } from 'lucid
 
 export default function Verification() {
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-64px)] overflow-hidden bg-brand-surface animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-64px)] overflow-hidden bg-brand-surface ">
       
       {/* Left Pane: Content Under Review */}
       <div className="w-full lg:w-1/2 p-6 lg:p-10 lg:pr-8 overflow-y-auto border-r border-brand-outline-variant bg-brand-surface-lowest">

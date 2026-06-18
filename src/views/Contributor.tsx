@@ -2,7 +2,7 @@ import { CloudUpload, Verified, ShieldCheck, FileText, CheckCircle2 } from 'luci
 
 export default function Contributor() {
   return (
-    <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-8 ">
       
       {/* Header & Score Card */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">

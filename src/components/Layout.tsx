@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { Home, ShieldCheck, FileText, Wallet, Users, Settings, Search, Bell, PlusCircle, CheckSquare } from 'lucide-react';
+import React, { ReactNode, useState } from 'react';
+import { Home, ShieldCheck, FileText, Wallet, Users, Settings, Search, Bell, PlusCircle, CheckSquare, Bookmark, History } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -15,6 +15,8 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
     { id: 'verification', icon: <CheckSquare size={20} />, label: 'Verification Center' }, // Added for easy access
     { id: 'contributor', icon: <FileText size={20} />, label: 'My Contributions' },
     { id: 'wallet', icon: <Wallet size={20} />, label: 'My Wallet' },
+    { id: 'bookmarks', icon: <Bookmark size={20} />, label: 'Saved Articles' },
+    { id: 'recent', icon: <History size={20} />, label: 'Recent Articles' },
     { id: 'verified', icon: <ShieldCheck size={20} />, label: 'Verified Reports' },
     { id: 'network', icon: <Users size={20} />, label: 'Trust Network' },
     { id: 'settings', icon: <Settings size={20} />, label: 'Settings' }
@@ -103,7 +105,65 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
         {/* Main Content Pane */}
         <main className="flex-1 overflow-y-auto w-full bg-brand-surface scroll-smooth pb-12">
           {children}
+          
+          <NewsletterWidget />
         </main>
+      </div>
+    </div>
+  );
+}
+
+function NewsletterWidget() {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(() => {
+    return !!window.localStorage.getItem('newsletter_email');
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    window.localStorage.setItem('newsletter_email', email);
+    setSubscribed(true);
+    setEmail('');
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 md:px-8 mt-16 mb-8">
+      <div className="bg-brand-surface-low border border-brand-outline-variant p-8 md:p-10 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="flex-1 max-w-xl">
+          <h3 className="text-xl md:text-2xl font-serif font-bold text-brand-primary mb-2">
+            Subscribe to our Newsletter
+          </h3>
+          <p className="text-gray-500 text-sm md:text-base">
+            Get the latest verified reports and global news delivered straight to your inbox.
+          </p>
+        </div>
+
+        <div className="w-full md:w-auto md:min-w-[320px]">
+          {subscribed ? (
+            <div className="bg-brand-success/10 text-brand-success px-6 py-4 rounded-xl flex items-center justify-center gap-2 border border-brand-success/20">
+              <CheckSquare size={20} />
+              <span className="font-semibold text-sm">Successfully Subscribed!</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex gap-2 w-full">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1 bg-white border border-gray-300 px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary/50 focus:border-brand-secondary transition-all"
+              />
+              <button
+                type="submit"
+                className="bg-brand-primary text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-primary-container transition-colors whitespace-nowrap"
+              >
+                Subscribe
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

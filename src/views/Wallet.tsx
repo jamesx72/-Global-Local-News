@@ -6,7 +6,7 @@ export default function Wallet() {
   ];
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 ">
       
       <div>
         <h2 className="text-3xl font-serif font-bold text-brand-primary">Earnings Dashboard</h2>

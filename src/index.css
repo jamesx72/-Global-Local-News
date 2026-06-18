@@ -1,17 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #002045;
-  --color-brand-primary-container: #1a365d;
-  --color-brand-secondary: #7d5700;
-  --color-brand-secondary-container: #ffc250;
-  --color-brand-surface: #f7fafc;
-  --color-brand-surface-low: #f1f4f6;
-  --color-brand-surface-lowest: #ffffff;
-  --color-brand-outline: #c4c6cf;
-  --color-brand-outline-variant: #e0e3e5;
-  --color-brand-error: #ba1a1a;
-  --color-brand-success: #4caf50;
+  /* Brand mappings - Elegant Dark */
+  --color-brand-primary: #F5F5F5;
+  --color-brand-primary-container: rgba(255, 255, 255, 0.1);
+  --color-brand-secondary: #D4AF37;
+  --color-brand-secondary-container: rgba(212, 175, 55, 0.1);
+  --color-brand-surface: #0A0A0A;
+  --color-brand-surface-low: #080808;
+  --color-brand-surface-lowest: #1A1A1A;
+  --color-brand-outline: rgba(255, 255, 255, 0.15);
+  --color-brand-outline-variant: rgba(255, 255, 255, 0.05);
+  --color-brand-error: #ef4444;
+  --color-brand-success: #22c55e;
+
+  /* Tailwind mappings to dark mode equivalents */
+  --color-white: #151515; 
+  --color-black: #F5F5F5;
+  
+  --color-gray-50: rgba(255, 255, 255, 0.02);
+  --color-gray-100: rgba(255, 255, 255, 0.05);
+  --color-gray-200: rgba(255, 255, 255, 0.08); /* changed to darker for borders */
+  --color-gray-300: rgba(255, 255, 255, 0.15);
+  --color-gray-400: rgba(255, 255, 255, 0.3);
+  --color-gray-500: rgba(255, 255, 255, 0.4);
+  --color-gray-600: rgba(255, 255, 255, 0.5);
+  --color-gray-700: rgba(255, 255, 255, 0.6);
+  --color-gray-800: rgba(255, 255, 255, 0.8);
+  --color-gray-900: #F5F5F5;
+  
+  --color-blue-100: rgba(255, 255, 255, 0.4);
+  --color-blue-200: rgba(255, 255, 255, 0.6);
+  --color-blue-900: rgba(255, 255, 255, 0.05);
 
   --font-serif: "Merriweather", serif;
   --font-sans: "Inter", sans-serif;
@@ -19,6 +39,88 @@
 
 body {
   background-color: var(--color-brand-surface);
-  color: #181c1e;
+  color: #F5F5F5;
   font-family: var(--font-sans);
+  letter-spacing: 0.03em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif) !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 2.75rem !important;
+}
+
+h2 {
+  font-size: 2rem !important;
+}
+
+/* General component overrides for elegance */
+button {
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  font-weight: 400 !important;
+}
+
+input, textarea {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: #F5F5F5 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+  font-style: italic;
+}
+
+/* Subtle shadows / removal of bright borders */
+.shadow-sm, .shadow-md, .shadow-lg, .shadow-xl {
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Mute green and red text for dark mode */
+.text-green-600 { color: #22c55e !important; }
+.text-green-700, .text-green-800 { color: #4ade80 !important; }
+.bg-green-50, .bg-green-100 { background-color: rgba(74, 222, 128, 0.1) !important; border: 1px solid rgba(74, 222, 128, 0.2) !important; }
+.bg-green-600 { background-color: #16a34a !important; color: #fff !important; }
+
+.text-red-500 { color: #f87171 !important; }
+.text-red-700 { color: #fca5a5 !important; }
+.bg-red-50 { background-color: rgba(248, 113, 113, 0.1) !important; }
+.bg-red-500 { background-color: #dc2626 !important; color: #fff !important; }
+
+.border-yellow-200 { border-color: rgba(212, 175, 55, 0.3) !important; }
+
+/* Elegant Typography & Layout Tweaks */
+header h1 {
+  text-transform: uppercase !important;
+  letter-spacing: -0.05em !important;
+  font-style: italic !important;
+  font-size: 1.5rem !important; /* Mute the size a bit to fit elegant aesthetics */
+}
+
+header nav a {
+  text-transform: uppercase !important;
+  font-size: 11px !important;
+  letter-spacing: 0.2em !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+header nav a:hover {
+  color: #F5F5F5 !important;
+}
+
+header nav a.border-b-2 {
+  color: #F5F5F5 !important;
+  border-bottom-color: #F5F5F5 !important;
+  border-bottom-width: 1px !important;
+}
+
+/* Make tags look like the sophisticated tags in design */
+.uppercase.tracking-wider {
+  letter-spacing: 0.3em !important;
+  font-size: 10px !important;
 }
