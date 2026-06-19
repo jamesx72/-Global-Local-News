@@ -15,6 +15,27 @@ export function useRecentArticles() {
     async function loadRecent() {
       if (user) {
         setLoading(true);
+        
+        // Sync local recent articles to Firebase
+        try {
+          const saved = window.localStorage.getItem('app_recent_articles');
+          if (saved) {
+            const localRecent: Article[] = JSON.parse(saved);
+            if (Array.isArray(localRecent) && localRecent.length > 0) {
+              const syncPromises = localRecent.map(article => 
+                setDoc(doc(db, `users/${user.uid}/recentArticles`, String(article.id)), {
+                  ...article,
+                  viewedAt: serverTimestamp()
+                }, { merge: true })
+              );
+              await Promise.all(syncPromises);
+              window.localStorage.removeItem('app_recent_articles');
+            }
+          }
+        } catch (e) {
+          console.error('Error syncing local recent articles to Firestore', e);
+        }
+
         const q = query(collection(db, `users/${user.uid}/recentArticles`), orderBy('viewedAt', 'desc'));
         unsubscribe = onSnapshot(q, (snapshot) => {
           const loadedRecent = snapshot.docs.map(doc => doc.data() as Article);

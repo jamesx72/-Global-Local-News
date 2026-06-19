@@ -1,8 +1,12 @@
-import React, { ReactNode, useState } from 'react';
-import { Home, ShieldCheck, FileText, Wallet, Users, Settings, Search, Bell, PlusCircle, CheckSquare, Bookmark, History, LogIn, LogOut, Sun, Moon } from 'lucide-react';
+import React, { ReactNode, useState, useEffect, useRef } from 'react';
+import { Home, ShieldCheck, FileText, Wallet, Users, Settings, Search, Bell, PlusCircle, CheckSquare, Bookmark, History, LogIn, Sun, Moon, Clock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSearch } from '../hooks/useSearch';
 import { useTheme } from '../hooks/useTheme';
+import AuthModal from './AuthModal';
+import ProfileModal from './ProfileModal';
+import KeyboardShortcutsModal from './KeyboardShortcutsModal';
+import NewsTicker from './NewsTicker';
 
 interface LayoutProps {
   children: ReactNode;
@@ -12,9 +16,77 @@ interface LayoutProps {
 
 export default function Layout({ children, currentView, setCurrentView }: LayoutProps) {
   const isVerification = currentView === 'verification';
-  const { user, signInWithGoogle, logout } = useAuth();
+  const { user } = useAuth();
   const { searchQuery, setSearchQuery } = useSearch();
   const { theme, toggleTheme } = useTheme();
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if user is typing in an input or textarea
+      if (
+        document.activeElement?.tagName === 'INPUT' || 
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === 'SELECT'
+      ) {
+        // Exception: Handle escape to blur input
+        if (e.key === 'Escape') {
+          (document.activeElement as HTMLElement).blur();
+        }
+        return;
+      }
+
+      if (e.key === '?') {
+        e.preventDefault();
+        setShortcutsModalOpen(prev => !prev);
+        return;
+      }
+
+      // Action shortcuts
+      if (e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      
+      const key = e.key.toLowerCase();
+      
+      if (key === 'l') {
+        if (!user) {
+          setAuthModalOpen(true);
+        }
+      } else if (key === 'p') {
+        if (user) {
+          setProfileModalOpen(true);
+        }
+      } else {
+        // Navigation shortcuts
+        const navMap: Record<string, string> = {
+          'h': 'home',
+          'v': 'verification',
+          'c': 'contributor',
+          'w': 'wallet',
+          'b': 'bookmarks',
+          'r': 'recent',
+          't': 'readLater',
+          'n': 'network',
+          's': 'settings'
+        };
+        
+        if (navMap[key]) {
+          setCurrentView(navMap[key]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [user, setCurrentView]);
 
   const mainNav = [
     { id: 'home', icon: <Home size={20} />, label: 'Home' },
@@ -22,16 +94,28 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
     { id: 'contributor', icon: <FileText size={20} />, label: 'My Contributions' },
     { id: 'wallet', icon: <Wallet size={20} />, label: 'My Wallet' },
     { id: 'bookmarks', icon: <Bookmark size={20} />, label: 'Saved Articles' },
+    { id: 'readLater', icon: <Clock size={20} />, label: 'Read Later' },
     { id: 'recent', icon: <History size={20} />, label: 'Recent Articles' },
     { id: 'verified', icon: <ShieldCheck size={20} />, label: 'Verified Reports' },
     { id: 'network', icon: <Users size={20} />, label: 'Trust Network' },
     { id: 'settings', icon: <Settings size={20} />, label: 'Settings' }
   ];
 
+  const handleCreateReport = () => {
+    if (!user) {
+      setAuthModalOpen(true);
+    } else {
+      setCurrentView('contributor');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-brand-surface text-brand-primary">
+      {/* Breaking News Ticker */}
+      <NewsTicker />
+      
       {/* Header */}
-      <header className="bg-brand-surface-lowest h-16 border-b border-brand-outline-variant sticky top-0 z-50 flex items-center justify-between px-6">
+      <header className="bg-brand-surface-lowest h-16 border-b border-brand-outline-variant sticky top-0 z-40 flex items-center justify-between px-6">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('home')}>
             <div className="w-9 h-9 bg-brand-primary rounded-lg flex items-center justify-center shadow-sm group-hover:bg-brand-primary-container transition-colors">
@@ -57,8 +141,9 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
           <div className="flex items-center bg-brand-surface-low rounded-full px-3 md:px-4 py-1.5 gap-2 border border-brand-outline-variant w-full max-w-[150px] md:max-w-none">
             <Search size={18} className="text-gray-400 shrink-0" />
             <input 
+              ref={searchInputRef}
               type="text" 
-              placeholder="Search..." 
+              placeholder="Search... (Press '/')" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-sm focus:outline-none w-full md:w-48 text-brand-primary min-w-0" 
@@ -66,7 +151,7 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
           </div>
           {!isVerification && (
             <button
-              onClick={() => setCurrentView('contributor')}
+              onClick={handleCreateReport}
               className="hidden md:flex items-center gap-2 bg-brand-primary text-white border border-brand-outline-variant px-4 py-2 rounded-md text-sm font-semibold hover:opacity-90 transition-colors">
               <PlusCircle size={18} /> Report Breaking News
             </button>
@@ -86,14 +171,17 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
           </button>
           
           {user ? (
-            <div className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden border border-brand-outline cursor-pointer ml-1 relative group">
+            <div 
+              onClick={() => setProfileModalOpen(true)}
+              className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden border border-brand-outline cursor-pointer ml-1 relative hover:ring-2 hover:ring-brand-primary transition-all"
+            >
               <img src={user.photoURL || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"} alt="Avatar" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/60 hidden group-hover:flex items-center justify-center text-white" onClick={logout} title="Sign out">
-                <LogOut size={16} />
-              </div>
             </div>
           ) : (
-            <button onClick={signInWithGoogle} className="ml-2 flex items-center gap-2 bg-brand-surface-lowest text-brand-primary hover:bg-brand-surface-low border border-brand-outline px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
+            <button 
+              onClick={() => setAuthModalOpen(true)} 
+              className="ml-2 flex items-center gap-2 bg-brand-surface-lowest text-brand-primary hover:bg-brand-surface-low border border-brand-outline px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            >
               <LogIn size={16} /> Sign In
             </button>
           )}
@@ -103,13 +191,13 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-64 bg-brand-surface-low border-r border-brand-outline-variant flex-shrink-0 hidden lg:flex flex-col p-4 overflow-y-auto">
-          <div className="mb-6 bg-brand-surface-lowest p-3 rounded-xl border border-brand-outline-variant shadow-sm">
+          <div className="mb-6 bg-brand-surface-lowest p-3 rounded-xl border border-brand-outline-variant shadow-sm cursor-pointer hover:border-brand-primary/50 transition-colors" onClick={() => user ? setProfileModalOpen(true) : setAuthModalOpen(true)}>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-brand-secondary-container rounded-full flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden">
+              <div className="w-10 h-10 bg-brand-secondary-container rounded-full flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden border border-brand-outline-variant">
                 {user?.photoURL ? <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" /> : <Users size={20} />}
               </div>
               <div className="overflow-hidden">
-                <h3 className="font-semibold text-sm text-brand-primary truncate">{user ? user.displayName : "Citizen Reporter"}</h3>
+                <h3 className="font-semibold text-sm text-brand-primary truncate">{user ? (user.displayName || 'Set Name in Settings') : "Citizen Reporter"}</h3>
                 <div className="text-xs font-bold text-brand-secondary">Trust Score: {user ? '120' : '98'}</div>
               </div>
             </div>
@@ -143,12 +231,23 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
         </aside>
 
         {/* Main Content Pane */}
-        <main className="flex-1 overflow-y-auto w-full bg-brand-surface scroll-smooth pb-12">
+        <main className="flex-1 overflow-y-auto w-full bg-brand-surface scroll-smooth pb-12 relative">
           {children}
           
           <NewsletterWidget />
         </main>
       </div>
+
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+      <ProfileModal 
+        isOpen={profileModalOpen} 
+        onClose={() => setProfileModalOpen(false)} 
+        onSettingsClick={() => setCurrentView('settings')}
+      />
+      <KeyboardShortcutsModal 
+        isOpen={shortcutsModalOpen} 
+        onClose={() => setShortcutsModalOpen(false)} 
+      />
     </div>
   );
 }
@@ -209,3 +308,4 @@ function NewsletterWidget() {
     </div>
   );
 }
+

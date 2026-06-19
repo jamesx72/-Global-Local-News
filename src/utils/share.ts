@@ -1,3 +1,5 @@
+import React from 'react';
+
 export const handleShareAction = async (
   e: React.SyntheticEvent | KeyboardEvent | null,
   id: string,

@@ -21,32 +21,55 @@ async function startServer() {
           ],
         }
       });
-      // Fetch NYT World News feed as a reliable, live source
-      const feed = await parser.parseURL('https://rss.nytimes.com/services/xml/rss/nyt/World.xml');
       
-      const articles = feed.items.map((item, index) => {
-        let imageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80';
-        if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
-          imageUrl = item.mediaContent['$'].url;
-        }
+      const feedsToFetch = [
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'World News' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', category: 'Technology' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', category: 'Science' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'Business' }
+      ];
 
-        return {
-          id: `live-${index}-${Date.now()}`,
-          category: 'World News',
-          title: item.title || 'Untitled',
-          location: 'Global',
-          imageUrl,
-          trustScore: 95, // Assumed for NYT
-          readingTime: Math.max(3, Math.floor(Math.random() * 5) + 2), // Mock reading time
-          content: item.contentSnippet || item.content || item.description || '',
-          timestamp: item.pubDate,
-          tags: Array.isArray(item.categories)
-            ? item.categories.map((c: any) => typeof c === 'string' ? c : (c?._ || c?.domain || String(c)))
-            : ['World News']
-        };
+      const feedPromises = feedsToFetch.map(async (feedInfo) => {
+        try {
+          const feed = await parser.parseURL(feedInfo.url);
+          return feed.items.map((item, index) => {
+            let imageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80';
+            if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
+              imageUrl = item.mediaContent['$'].url;
+            }
+
+            return {
+              id: `live-${feedInfo.category.toLowerCase()}-${index}-${Date.now()}`,
+              category: feedInfo.category,
+              title: item.title || 'Untitled',
+              location: 'Global',
+              imageUrl,
+              trustScore: 95, // Assumed for NYT
+              readingTime: Math.max(3, Math.floor(Math.random() * 5) + 2), // Mock reading time
+              content: item.contentSnippet || item.content || item.description || '',
+              timestamp: item.pubDate,
+              tags: Array.isArray(item.categories)
+                ? item.categories.map((c: any) => typeof c === 'string' ? c : (c?._ || c?.domain || String(c)))
+                : [feedInfo.category]
+            };
+          });
+        } catch (err) {
+          console.error(`Failed to fetch ${feedInfo.url}`, err);
+          return [];
+        }
       });
 
-      res.json({ articles });
+      const allArticlesArrays = await Promise.all(feedPromises);
+      let allArticles = allArticlesArrays.flat();
+      
+      // Sort by publication date, newest first
+      allArticles.sort((a, b) => {
+        const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      res.json({ articles: allArticles });
     } catch (error) {
       console.error("Failed to fetch live news:", error);
       res.status(500).json({ error: "Failed to fetch live news" });
@@ -306,16 +329,26 @@ Provide a brief fact-check summary and determine if it is TRUE, FALSE, or UNVERI
           // Try gemini-3.5-flash as explicitly requested by user
           model: "gemini-3.5-flash", 
           contents: prompt,
+          // @ts-ignore: GoogleSearch tool bypass for TS limitation
           tools: [{ googleSearch: {} }]
         });
       } catch (e) {
-        console.warn("gemini-3.5-flash unavailable, falling back to gemini-2.5-pro...");
-        // Fallback to gemini-2.5-pro for search tool support
-        response = await ai.models.generateContent({
-          model: "gemini-2.5-pro",
-          contents: prompt,
-          tools: [{ googleSearch: {} }]
-        });
+        console.warn("gemini-3.5-flash unavailable, falling back to gemini-1.5-pro...");
+        try {
+          // Fallback to gemini-1.5-pro for search tool support
+          response = await ai.models.generateContent({
+            model: "gemini-1.5-pro",
+            contents: prompt,
+            // @ts-ignore: GoogleSearch tool bypass for TS limitation
+            tools: [{ googleSearch: {} }]
+          });
+        } catch (e2) {
+          console.warn("gemini-1.5-pro unavailable, falling back to gemini-2.5-flash...");
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt
+          });
+        }
       }
       
       const text = response.text || "Fact check unavailable.";
@@ -326,6 +359,72 @@ Provide a brief fact-check summary and determine if it is TRUE, FALSE, or UNVERI
     } catch (error) {
       console.error("Verification error:", error);
       res.status(500).json({ error: "Failed to verify report via Google Search" });
+    }
+  });
+
+  // API Route for article chat (Streaming)
+  app.post("/api/chat/article", async (req, res) => {
+    try {
+      const { message, articleTitle, articleContent, history } = req.body;
+      if (!message) {
+        return res.status(400).json({ error: "No message provided" });
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Gemini API Key is not configured." });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      const systemInstruction = `You are a helpful AI assistant answering questions about a specific article. 
+Use the following article as your primary context:
+Title: ${articleTitle}
+Content: ${articleContent}
+
+If the user greets you or asks a general question, you can answer politely, but try to tie it back to the article if possible. If the user asks a question that cannot be answered using the article's context, mention that the article does not provide that information, but you can try to provide a general answer.`;
+
+      const formattedHistory = history ? history.map((msg: any) => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      })) : [];
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      try {
+        const chat = ai.chats.create({
+          model: "gemini-2.5-flash",
+          config: {
+            systemInstruction: systemInstruction,
+          },
+          history: formattedHistory
+        });
+
+        const responseStream = await chat.sendMessageStream({
+          message: message
+        });
+        
+        for await (const chunk of responseStream) {
+           if (chunk.text) {
+             res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+           }
+        }
+        res.write('data: [DONE]\n\n');
+        res.end();
+      } catch (err: any) {
+        console.error("Chat generation error:", err);
+        res.write(`data: ${JSON.stringify({ text: "\n\nError: Chat is currently unavailable due to high API demand." })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      if (!res.headersSent) {
+        res.status(503).json({ error: "Chat service is currently unavailable. Please try again later." });
+      } else {
+        res.end();
+      }
     }
   });
 

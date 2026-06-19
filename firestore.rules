@@ -11,6 +11,18 @@ service cloud.firestore {
       match /recentArticles/{articleId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      match /paymentMethods/{methodId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /transactions/{transactionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /readLater/{articleId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

@@ -208,3 +208,60 @@ header nav a.border-b-2 {
   font-size: 10px !important;
 }
 
+@media print {
+  /* Hide non-essential UI elements */
+  header, footer, nav, button, .no-print, [role="button"], [class*="animate-ticker"] {
+    display: none !important;
+  }
+
+  /* Reset layout for print */
+  body {
+    background-color: white !important;
+    color: black !important;
+    margin: 0 !important;
+  }
+
+  /* Hide modal backgrounds and allow scrolling */
+  [role="dialog"] {
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: none !important;
+  }
+  
+  [role="dialog"] > div > div {
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Focus on article content */
+  .prose {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+  }
+  
+  h1 { font-size: 24pt !important; line-height: 1.2 !important; margin-bottom: 2rem !important; }
+  p { font-size: 12pt !important; line-height: 1.6 !important; margin-bottom: 1.5rem !important; page-break-inside: avoid; }
+  
+  /* Reset colors to save ink and look like a proper document */
+  * {
+    color: black !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    border-color: #ddd !important;
+  }
+
+  /* Handle images gracefully */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+    border-radius: 0 !important;
+  }
+
+  a {
+    text-decoration: underline !important;
+  }
+}
+

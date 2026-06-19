@@ -1,5 +1,6 @@
 import { Play, Plus, Activity, MapPin, CheckCircle2, XCircle, Info, Search, ShieldAlert, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { useNotifications } from '../contexts/NotificationContext';
 
 const mockArticleContent = `At approximately 08:45 AM local time, witnesses reported a "significant structural failure" on the lower mezzanine level of the Northern District Central Metro station. Initial reports suggest that a secondary support beam may have buckled under heavy vibration from a passing express train.
 "The sound was like thunder underground," says Mark Thomason, a commuter on the platform. "Dust started falling from the ceiling immediately, and security began an emergency evacuation within seconds."
@@ -9,9 +10,11 @@ export default function Verification() {
   const [factCheckState, setFactCheckState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [factCheckResult, setFactCheckResult] = useState<string | null>(null);
   const [factCheckSources, setFactCheckSources] = useState<string[]>([]);
+  const { addNotification } = useNotifications();
 
   const handleFactCheck = async () => {
     setFactCheckState('loading');
+    addNotification('Scanning Sources', 'Our AI is cross-referencing global news networks...', 'info');
     try {
       const res = await fetch('/api/verify', {
         method: 'POST',
@@ -26,12 +29,26 @@ export default function Verification() {
       const data = await res.json();
       setFactCheckResult(data.result);
       setFactCheckSources(data.sources || []);
+      addNotification('Verification Complete', 'The AI Trust Report has been updated successfully.', 'success');
     } catch (err) {
       console.error(err);
       setFactCheckResult("Verification failed.");
+      addNotification('Fact-Check Failed', 'Could not reach the verification server.', 'error');
     } finally {
       setFactCheckState('done');
     }
+  };
+
+  const handleApprove = () => {
+    addNotification('Report Approved', 'Your verification vote has been registered on the network.', 'success');
+  };
+
+  const handleReject = () => {
+    addNotification('Report Rejected', 'Your objection has been filed for secondary review.', 'info');
+  };
+
+  const handleRequestInfo = () => {
+    addNotification('Info Requested', 'A request for further evidence has been logged.', 'info');
   };
 
   return (
@@ -231,15 +248,21 @@ export default function Verification() {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary via-brand-secondary-container to-brand-primary"></div>
             <h4 className="text-center text-xs font-bold text-brand-primary uppercase tracking-widest mb-6">Cast Your Final Verification</h4>
             
-            <button className="w-full bg-brand-primary text-brand-surface-lowest py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all shadow-md mb-4 text-sm">
+            <button onClick={handleApprove} className="w-full bg-brand-primary text-brand-surface-lowest py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all shadow-md mb-4 text-sm">
               <CheckCircle2 size={20} fill="currentColor" className="opacity-20" /> Approve Report
             </button>
             
             <div className="grid grid-cols-2 gap-4">
-              <button className="py-3 border-2 border-brand-outline text-brand-primary rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-brand-surface transition-all text-sm">
+              <button 
+                onClick={handleRequestInfo}
+                className="py-3 border-2 border-brand-outline text-brand-primary rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-brand-surface transition-all text-sm"
+              >
                 <Info size={18} /> Request Info
               </button>
-              <button className="py-3 border-2 border-brand-error/20 text-brand-error rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-brand-error/10 active:scale-95 transition-all text-sm">
+              <button 
+                onClick={handleReject}
+                className="py-3 border-2 border-brand-error/20 text-brand-error rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-brand-error/10 active:scale-95 transition-all text-sm"
+              >
                 <XCircle size={18} /> Reject Report
               </button>
             </div>

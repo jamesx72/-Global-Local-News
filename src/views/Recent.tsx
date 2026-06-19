@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useBookmarks, Article } from '../hooks/useBookmarks';
 import { useRecentArticles } from '../hooks/useRecentArticles';
+import { useReadLater } from '../hooks/useReadLater';
 import { useSearch } from '../hooks/useSearch';
 import { Bookmark, BookmarkCheck, MapPin, Share2, CheckCircle2, Maximize2, Clock, History, Trash2 } from 'lucide-react';
-import ReadingModeModal from '../components/ReadingModeModal';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SentimentIndicator from '../components/SentimentIndicator';
 import AITagsIndicator from '../components/AITagsIndicator';
@@ -13,9 +13,15 @@ import { getReadingTime } from '../utils/readingTime';
 export default function Recent() {
   const { recentArticles, clearRecentArticles, loading } = useRecentArticles();
   const { toggleBookmark, isBookmarked } = useBookmarks();
+  const { toggleReadLater, isReadLater } = useReadLater();
   const { searchQuery } = useSearch();
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [readingArticle, setReadingArticle] = useState<Article | null>(null);
+
+  const setReadingArticle = (article: Article | null) => {
+    if (article) {
+      window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article } } }));
+    }
+  };
 
   const filteredRecentArticles = recentArticles.filter(article => {
     if (!searchQuery) return true;
@@ -39,6 +45,11 @@ export default function Recent() {
   const handleToggleBookmark = (e: React.MouseEvent, article: Article) => {
     e.stopPropagation();
     toggleBookmark(article);
+  };
+
+  const handleToggleReadLater = (e: React.MouseEvent, article: Article) => {
+    e.stopPropagation();
+    toggleReadLater(article);
   };
 
   if (loading) {
@@ -82,6 +93,7 @@ export default function Recent() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRecentArticles.map((article) => {
             const bookmarked = isBookmarked(article.id);
+            const inQueue = isReadLater(article.id);
             return (
               <article 
                 key={article.id} 
@@ -93,6 +105,13 @@ export default function Recent() {
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500" />
                   <div className="absolute top-3 left-3 bg-brand-secondary-container text-brand-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">{article.category}</div>
                   <div className="absolute top-3 right-3 flex gap-2">
+                    <button 
+                      onClick={(e) => handleToggleReadLater(e, article)}
+                      className={`p-2 backdrop-blur-md rounded-full transition-colors ${inQueue ? 'bg-black/60 text-brand-secondary border border-brand-secondary' : 'bg-black/40 hover:bg-black/80 text-white'}`}
+                      title={inQueue ? "Remove from Read Later" : "Read Later"}
+                    >
+                      <Clock size={16} />
+                    </button>
                     <button 
                       onClick={(e) => handleShare(e, article.id, article.title)}
                       className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors"
@@ -146,18 +165,6 @@ export default function Recent() {
           })}
         </div>
       )}
-
-      <ReadingModeModal 
-        article={readingArticle}
-        allArticles={recentArticles}
-        isOpen={!!readingArticle}
-        onClose={() => setReadingArticle(null)}
-        copiedId={copiedId}
-        onShare={(e, id) => {
-          const article = recentArticles.find(a => a.id === id);
-          handleShare(e, id, article?.title || '');
-        }}
-      />
     </div>
   );
 }

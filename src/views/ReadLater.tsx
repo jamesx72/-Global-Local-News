@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { useBookmarks, Article } from '../hooks/useBookmarks';
 import { useReadLater } from '../hooks/useReadLater';
+import { useBookmarks, Article } from '../hooks/useBookmarks';
 import { useSearch } from '../hooks/useSearch';
-import { Bookmark, BookmarkCheck, MapPin, Verified, ArrowRight, Share2, CheckCircle2, Maximize2, Clock } from 'lucide-react';
+import { Clock, Bookmark, BookmarkCheck, MapPin, Verified, ArrowRight, Share2, CheckCircle2, Maximize2 } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SentimentIndicator from '../components/SentimentIndicator';
 import AITagsIndicator from '../components/AITagsIndicator';
 import { handleShareAction } from '../utils/share';
 import { getReadingTime } from '../utils/readingTime';
 
-export default function Bookmarks() {
-  const { bookmarks, toggleBookmark, isBookmarked, loading } = useBookmarks();
-  const { toggleReadLater, isReadLater } = useReadLater();
+export default function ReadLater() {
+  const { readLater, toggleReadLater, isReadLater, loading } = useReadLater();
+  const { toggleBookmark, isBookmarked } = useBookmarks();
   const { searchQuery } = useSearch();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -21,7 +21,7 @@ export default function Bookmarks() {
     }
   };
 
-  const filteredBookmarks = bookmarks.filter(article => {
+  const filteredCollection = readLater.filter(article => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -40,14 +40,14 @@ export default function Bookmarks() {
     });
   };
 
-  const handleToggleBookmark = (e: React.MouseEvent, article: Article) => {
-    e.stopPropagation();
-    toggleBookmark(article);
-  };
-
   const handleToggleReadLater = (e: React.MouseEvent, article: Article) => {
     e.stopPropagation();
     toggleReadLater(article);
+  };
+  
+  const handleToggleBookmark = (e: React.MouseEvent, article: Article) => {
+    e.stopPropagation();
+    toggleBookmark(article);
   };
 
   if (loading) {
@@ -55,7 +55,7 @@ export default function Bookmarks() {
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-serif font-bold text-brand-primary flex items-center gap-3">
-            Saved Collections
+            Read Later
           </h2>
         </div>
         <SkeletonLoader count={6} />
@@ -67,19 +67,19 @@ export default function Bookmarks() {
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 ">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-serif font-bold text-brand-primary flex items-center gap-3">
-          Saved Collections
+          Read Later
         </h2>
       </div>
 
-      {filteredBookmarks.length === 0 ? (
+      {filteredCollection.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 bg-brand-surface-low border border-brand-outline-variant rounded-2xl text-center">
-          <Bookmark size={48} className="text-brand-outline mb-4" />
-          <h3 className="text-xl font-serif font-bold text-brand-primary mb-2">No Saved Articles Match</h3>
+          <Clock size={48} className="text-brand-outline mb-4" />
+          <h3 className="text-xl font-serif font-bold text-brand-primary mb-2">Read Later Empty</h3>
           <p className="text-gray-500 mb-6 max-w-md">Try searching for something else or explore the live feed.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredBookmarks.map((article) => {
+          {filteredCollection.map((article) => {
             const bookmarked = isBookmarked(article.id);
             const inQueue = isReadLater(article.id);
             return (
@@ -95,17 +95,10 @@ export default function Bookmarks() {
                   <div className="absolute top-3 right-3 flex gap-2">
                     <button 
                       onClick={(e) => handleToggleReadLater(e, article)}
-                      className={`p-2 backdrop-blur-md rounded-full transition-colors ${inQueue ? 'bg-black/60 text-brand-secondary border border-brand-secondary' : 'bg-black/40 hover:bg-black/80 text-white'}`}
-                      title={inQueue ? "Remove from Read Later" : "Read Later"}
+                      className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-brand-secondary transition-colors border border-brand-secondary"
+                      title="Remove from Read Later"
                     >
                       <Clock size={16} />
-                    </button>
-                    <button 
-                      onClick={(e) => handleShare(e, article.id, article.title)}
-                      className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors"
-                      title="Share Article"
-                    >
-                      {copiedId === article.id ? <CheckCircle2 size={16} className="text-brand-success" /> : <Share2 size={16} />}
                     </button>
                     <button 
                       onClick={(e) => handleToggleBookmark(e, article)}

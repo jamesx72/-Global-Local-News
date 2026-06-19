@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { MapPin, ZoomIn, Globe, Verified, ArrowRight, Info, CheckCircle2, AlertTriangle, ExternalLink, ShieldCheck, Bookmark, BookmarkCheck, Share2, Maximize2, Clock, RefreshCw } from 'lucide-react';
 import { useBookmarks, Article } from '../hooks/useBookmarks';
 import { useSearch } from '../hooks/useSearch';
-import ReadingModeModal from '../components/ReadingModeModal';
+import { useReadLater } from '../hooks/useReadLater';
 import SentimentIndicator from '../components/SentimentIndicator';
 import AITagsIndicator from '../components/AITagsIndicator';
+import PreferencesModal from '../components/PreferencesModal';
 import { handleShareAction } from '../utils/share';
 import { getReadingTime } from '../utils/readingTime';
+import { useAuth } from '../hooks/useAuth';
+import { usePreferences } from '../hooks/usePreferences';
 
 const TRENDING_ARTICLES: Article[] = [
   {
@@ -17,7 +20,8 @@ const TRENDING_ARTICLES: Article[] = [
     imageUrl: 'https://images.unsplash.com/photo-1541804246944-d621183204cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     trustScore: 92,
     readingTime: 4,
-    tags: ['Technology', 'Infrastructure', 'Innovation']
+    tags: ['Technology', 'Infrastructure', 'Innovation'],
+    scope: 'Global'
   },
   {
     id: 'art-2',
@@ -27,17 +31,19 @@ const TRENDING_ARTICLES: Article[] = [
     imageUrl: 'https://images.unsplash.com/photo-1520601332219-94bf7be28f69?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     trustScore: 98,
     readingTime: 6,
-    tags: ['Politics', 'Legislation', 'Governance']
+    tags: ['Politics', 'Legislation', 'Governance'],
+    scope: 'Global'
   },
   {
     id: 'art-3',
     category: 'Environment',
-    title: 'Urban Air Quality Levels Hit Record Highs Follow Green Initiative',
-    location: 'Singapore',
+    title: 'Local Park Renovation Completed with Native Flora',
+    location: 'Downtown City',
     imageUrl: 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     trustScore: 85,
     readingTime: 3,
-    tags: ['Environment', 'Sustainability', 'Urban']
+    tags: ['Environment', 'Community', 'Urban'],
+    scope: 'Local'
   },
   {
     id: 'art-4',
@@ -47,32 +53,76 @@ const TRENDING_ARTICLES: Article[] = [
     imageUrl: 'https://images.unsplash.com/photo-1682687220199-d0124f5a34e0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
     trustScore: 94,
     readingTime: 5,
-    tags: ['Science', 'Oceanography', 'Discovery']
+    tags: ['Science', 'Oceanography', 'Discovery'],
+    scope: 'Global'
   },
   {
     id: 'art-5',
     category: 'Economy',
-    title: 'Global Markets Rally on Unprecedented Green Energy Deals',
-    location: 'Geneva, Switzerland',
+    title: 'City Council Approves New Small Business Grants',
+    location: 'City Hall',
     imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80',
     trustScore: 89,
     readingTime: 4,
-    tags: ['Economy', 'Energy', 'Global']
+    tags: ['Economy', 'Local Business', 'Community'],
+    scope: 'Local'
   }
 ];
 
 export default function Home() {
+  const { user } = useAuth();
+  const { preferences } = usePreferences();
   const { toggleBookmark, isBookmarked } = useBookmarks();
+  const { readLater, toggleReadLater, isReadLater } = useReadLater();
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [readingArticle, setReadingArticle] = useState<Article | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const setReadingArticle = (article: Article | null) => {
+    if (article) {
+      window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article } } }));
+    }
+  };
   const [articles, setArticles] = useState<Article[]>(TRENDING_ARTICLES);
   const { searchQuery } = useSearch();
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const recommendedArticles = React.useMemo(() => {
+    if (readLater.length === 0) return [];
+    
+    const savedTags = new Set<string>();
+    readLater.forEach(a => {
+      if (a.tags) {
+        a.tags.forEach(tag => savedTags.add(tag));
+      }
+    });
+
+    const savedCategories = new Set<string>(readLater.map(a => a.category));
+
+    const recommendations = articles.filter(a => {
+      if (readLater.some(saved => saved.id === a.id)) return false;
+      const hasMatchCategory = savedCategories.has(a.category);
+      const hasMatchTag = a.tags ? a.tags.some(tag => savedTags.has(tag)) : false;
+      return hasMatchCategory || hasMatchTag;
+    });
+    
+    return recommendations.slice(0, 3);
+  }, [readLater, articles]);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('For You');
+  const [selectedScope, setSelectedScope] = useState<'Local' | 'Global'>('Global');
 
   const filteredArticles = articles.filter(article => {
-    if (selectedCategory !== 'All' && article.category !== selectedCategory) return false;
+    if (selectedScope && article.scope && article.scope !== selectedScope) {
+      return false;
+    }
+
+    if (selectedCategory === 'For You') {
+      if (preferences && preferences.length > 0) {
+        if (!preferences.includes(article.category)) return false;
+      }
+    } else if (selectedCategory !== 'All' && article.category !== selectedCategory) {
+      return false;
+    }
     
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -85,7 +135,7 @@ export default function Home() {
     );
   });
 
-  const availableCategories = ['All', ...Array.from(new Set(articles.map(a => a.category)))];
+  const availableCategories = ['For You', 'All', ...Array.from(new Set(articles.map(a => a.category))) as string[]];
 
   const fetchLiveNews = async () => {
     setIsRefreshing(true);
@@ -124,6 +174,11 @@ export default function Home() {
   const handleToggleBookmark = (e: React.MouseEvent, article: Article) => {
     e.stopPropagation();
     toggleBookmark(article);
+  };
+
+  const handleToggleReadLater = (e: React.MouseEvent, article: Article) => {
+    e.stopPropagation();
+    toggleReadLater(article);
   };
 
   return (
@@ -184,6 +239,22 @@ export default function Home() {
                   <div className="absolute top-4 left-4 bg-brand-primary/90 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                     #{index + 1} Trending
                   </div>
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <button 
+                      onClick={(e) => handleToggleReadLater(e, article)}
+                      className={`p-2 backdrop-blur-md rounded-full transition-colors ${isReadLater(article.id) ? 'bg-black/60 text-brand-secondary border border-brand-secondary' : 'bg-black/40 hover:bg-black/80 text-white'}`}
+                      title={isReadLater(article.id) ? "Remove from Read Later" : "Read Later"}
+                    >
+                      <Clock size={16} />
+                    </button>
+                    <button 
+                      onClick={(e) => handleToggleBookmark(e, article)}
+                      className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors"
+                      title="Bookmark Article"
+                    >
+                      {isBookmarked(article.id) ? <BookmarkCheck size={16} className="text-brand-secondary" /> : <Bookmark size={16} />}
+                    </button>
+                  </div>
                   <div className="absolute bottom-4 left-4 right-4">
                      <div className="flex items-center gap-2 text-white/80 text-xs mb-2">
                        <span className="bg-brand-secondary/90 text-brand-surface-lowest px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">{article.category}</span>
@@ -222,7 +293,21 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto nice-scroll pb-4 mb-4">
+        <div className="flex gap-2 overflow-x-auto nice-scroll pb-4 mb-4 items-center">
+          <div className="flex bg-brand-surface-low border border-brand-outline-variant p-1 rounded-full shrink-0 mr-2">
+            <button
+              onClick={() => setSelectedScope('Global')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${selectedScope === 'Global' ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-500 hover:text-brand-primary'}`}
+            >
+              Global
+            </button>
+            <button
+              onClick={() => setSelectedScope('Local')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${selectedScope === 'Local' ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-500 hover:text-brand-primary'}`}
+            >
+              Local
+            </button>
+          </div>
           {availableCategories.map(category => (
             <button
               key={category}
@@ -236,16 +321,40 @@ export default function Home() {
               {category}
             </button>
           ))}
+          <div className="w-px h-6 bg-brand-outline-variant mx-2 shrink-0"></div>
+          <button 
+            onClick={() => setShowPreferencesModal(true)}
+            className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors bg-brand-surface-low text-brand-secondary hover:bg-brand-secondary/10 border border-brand-secondary border-dashed"
+          >
+            Personalize
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredArticles.length === 0 ? (
-            <div className="col-span-full py-12 text-center text-gray-500">
-              No articles match your search.
+            <div className="col-span-full py-16 flex flex-col items-center justify-center text-center bg-brand-surface-lowest rounded-2xl border border-brand-outline-variant border-dashed">
+              <div className="w-16 h-16 bg-brand-secondary/10 text-brand-secondary rounded-full flex items-center justify-center mb-4">
+                <Globe size={32} />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-brand-primary mb-2">No Matches Found</h3>
+              <p className="text-gray-500 max-w-sm">
+                {selectedCategory === 'For You' 
+                  ? "You haven't set up your personalized feed yet, or there are no new articles in your selected topics." 
+                  : "We couldn't find any articles matching your current filters."}
+              </p>
+              {selectedCategory === 'For You' && (
+                 <button 
+                   onClick={() => setShowPreferencesModal(true)}
+                   className="mt-6 px-6 py-2.5 bg-brand-primary text-white rounded-xl font-bold uppercase tracking-wider text-xs hover:bg-brand-primary/90 transition-colors"
+                 >
+                   Set Preferences
+                 </button>
+              )}
             </div>
           ) : (
             filteredArticles.map((article) => {
               const bookmarked = isBookmarked(article.id);
+              const inQueue = isReadLater(article.id);
               return (
               <article 
                 key={article.id} 
@@ -257,6 +366,13 @@ export default function Home() {
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500" />
                   <div className="absolute top-3 left-3 bg-brand-secondary-container text-brand-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">{article.category}</div>
                   <div className="absolute top-3 right-3 flex gap-2">
+                    <button 
+                      onClick={(e) => handleToggleReadLater(e, article)}
+                      className={`p-2 backdrop-blur-md rounded-full transition-colors ${inQueue ? 'bg-black/60 text-brand-secondary border border-brand-secondary' : 'bg-black/40 hover:bg-black/80 text-white'}`}
+                      title={inQueue ? "Remove from Read Later" : "Read Later"}
+                    >
+                      <Clock size={16} />
+                    </button>
                     <button 
                       onClick={(e) => handleShare(e, article.id, article.title)}
                       className="p-2 bg-black/40 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors"
@@ -367,16 +483,69 @@ export default function Home() {
         </div>
       </section>
 
-      <ReadingModeModal 
-        article={readingArticle}
-        allArticles={articles}
-        isOpen={!!readingArticle}
-        onClose={() => setReadingArticle(null)}
-        copiedId={copiedId}
-        onShare={(e, id) => {
-          const article = [...TRENDING_ARTICLES, ...articles].find(a => a.id === id);
-          handleShare(e, id, article?.title || '');
-        }}
+      {/* Recommended for You Section */}
+      {recommendedArticles.length > 0 && (
+        <section className="mt-12 mb-8 bg-brand-surface-low rounded-2xl p-6 border border-brand-outline-variant">
+          <div className="flex items-center gap-2 mb-6 text-brand-primary">
+            <BookmarkCheck className="text-brand-secondary" size={24} />
+            <h2 className="text-2xl font-serif font-bold">Recommended based on your Read Later collection</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recommendedArticles.map(article => (
+              <article 
+                key={article.id} 
+                className="bg-brand-surface-lowest rounded-xl border border-brand-outline hover:border-brand-secondary hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer"
+                onClick={() => setReadingArticle(article)}
+              >
+                {article.imageUrl && (
+                  <div className="h-40 overflow-hidden relative">
+                    <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute top-2 right-2 flex flex-col gap-2">
+                       <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleReadLater(article);
+                        }}
+                        className="p-1.5 bg-black/50 hover:bg-black/80 rounded-full backdrop-blur text-white transition-colors"
+                        title="Read Later"
+                      >
+                         <Clock size={14} className={isReadLater(article.id) ? "text-brand-secondary" : ""} />
+                       </button>
+                    </div>
+                  </div>
+                )}
+                <div className="p-4 flex flex-col flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-brand-secondary">
+                      {article.category}
+                    </span>
+                    <div className="flex items-center gap-1 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                      <Clock size={12} /> {getReadingTime(article.content)} min read
+                    </div>
+                  </div>
+                  <h3 className="font-serif font-bold text-base text-brand-primary leading-snug mb-3 group-hover:text-brand-primary-container line-clamp-2">{article.title}</h3>
+                  <div className="mt-auto flex items-center justify-between border-t border-brand-outline-variant pt-3">
+                    <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold">
+                      <Verified size={12} /> VERIFIED
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full bg-gradient-to-r from-brand-error via-brand-secondary-container to-brand-success`} style={{ width: `${article.trustScore}%` }}></div>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-800">{article.trustScore}</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <PreferencesModal
+        isOpen={showPreferencesModal}
+        onClose={() => setShowPreferencesModal(false)}
+        availableCategories={availableCategories}
       />
     </div>
   );
