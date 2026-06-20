@@ -15,6 +15,7 @@ import ArticleDetail from './views/ArticleDetail';
 export default function App() {
   const [currentView, setCurrentView] = useState('home');
   const [viewData, setViewData] = useState<any>(null);
+  const [showShortcutModal, setShowShortcutModal] = useState(true);
 
   useEffect(() => {
     const applyTypographyAndTheme = () => {
@@ -28,6 +29,7 @@ export default function App() {
           if (parsed.typography) typography = parsed.typography;
           if (parsed.theme) theme = parsed.theme;
           if (parsed.baseFontSize) baseFontSize = parsed.baseFontSize;
+          if (parsed.showShortcutModal !== undefined) setShowShortcutModal(parsed.showShortcutModal);
         }
       } catch (e) {
         // ignore
@@ -59,17 +61,51 @@ export default function App() {
     };
   }, []);
 
+  const viewRef = React.useRef({ currentView, viewData });
+  useEffect(() => {
+    viewRef.current = { currentView, viewData };
+  }, [currentView, viewData]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement || 
         e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
         e.ctrlKey || e.metaKey || e.altKey // ignore if modifier used
       ) {
         return;
       }
 
       const key = e.key.toLowerCase();
+      const { currentView: cv, viewData: vd } = viewRef.current;
+
+      if (cv === 'articleDetail' && vd?.list && vd?.article) {
+        if (key === 'n') {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          const list: any[] = vd.list;
+          const currentIndex = list.findIndex(a => a.id === vd.article.id);
+          if (currentIndex !== -1) {
+            const nextIndex = (currentIndex + 1) % list.length;
+            setViewData({ article: list[nextIndex], list });
+          }
+          return;
+        } else if (key === 'p') {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          const list: any[] = vd.list;
+          const currentIndex = list.findIndex(a => a.id === vd.article.id);
+          if (currentIndex !== -1) {
+            const prevIndex = (currentIndex - 1 + list.length) % list.length;
+            setViewData({ article: list[prevIndex], list });
+          }
+          return;
+        }
+      }
+
       if (key === 'h') {
         setCurrentView('home');
       } else if (key === 'b') {
@@ -79,7 +115,7 @@ export default function App() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
 
     const handleNavigate = (e: CustomEvent) => {
       setCurrentView(e.detail.view);
@@ -88,7 +124,7 @@ export default function App() {
     window.addEventListener('navigate', handleNavigate as EventListener);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('navigate', handleNavigate as EventListener);
     };
   }, []);
@@ -122,6 +158,24 @@ export default function App() {
           {renderView()}
         </motion.div>
       </AnimatePresence>
+      
+      <AnimatePresence>
+        {currentView === 'articleDetail' && viewData?.list && showShortcutModal && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 bg-brand-surface-low border border-brand-outline px-4 py-3 rounded-xl shadow-xl z-50 no-print backdrop-blur-md"
+          >
+            <div className="text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">Reading Shortcuts</div>
+            <div className="flex gap-4 text-brand-primary text-sm font-medium">
+               <div className="flex items-center gap-2"><kbd className="px-2 py-0.5 bg-brand-surface-lowest border border-gray-200 shadow-sm rounded text-xs font-mono">P</kbd> Previous</div>
+               <div className="flex items-center gap-2"><kbd className="px-2 py-0.5 bg-brand-surface-lowest border border-gray-200 shadow-sm rounded text-xs font-mono">N</kbd> Next</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ReminderToast setCurrentView={setCurrentView} />
     </Layout>
   );

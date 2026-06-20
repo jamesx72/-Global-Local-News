@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-type Theme = 'dark' | 'light';
+type Theme = 'dark' | 'light' | 'system';
 
 interface ThemeContextType {
   theme: Theme;
@@ -15,35 +15,42 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    try {
-      const saved = window.localStorage.getItem('app_theme');
-      return (saved as Theme) || 'dark';
-    } catch {
-      return 'dark';
-    }
-  });
+  const [theme, setThemeState] = useState<Theme>('dark');
 
   useEffect(() => {
-    try {
-        window.localStorage.setItem('app_theme', theme);
-    } catch (e) {
-        console.error('Failed to save theme to local storage');
-    }
-
-    if (theme === 'light') {
-      document.body.classList.add('theme-light');
-    } else {
-      document.body.classList.remove('theme-light');
-    }
-  }, [theme]);
+    const loadTheme = () => {
+      try {
+        const saved = window.localStorage.getItem('app_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.theme) setThemeState(parsed.theme as Theme);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    
+    loadTheme();
+    window.addEventListener('app_settings_changed', loadTheme);
+    return () => window.removeEventListener('app_settings_changed', loadTheme);
+  }, []);
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
+    try {
+      const saved = window.localStorage.getItem('app_settings');
+      const parsed = saved ? JSON.parse(saved) : {};
+      parsed.theme = newTheme;
+      window.localStorage.setItem('app_settings', JSON.stringify(parsed));
+      window.dispatchEvent(new Event('app_settings_changed'));
+      setThemeState(newTheme);
+    } catch {
+      // ignore
+    }
   };
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
   };
 
   return (

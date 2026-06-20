@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './useAuth';
+import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 export function usePreferences() {
   const { user } = useAuth();
@@ -25,7 +26,7 @@ export function usePreferences() {
           setPreferences([]);
         }
       } catch (error) {
-        console.error('Failed to load preferences', error);
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
       } finally {
         setLoading(false);
       }
@@ -41,7 +42,7 @@ export function usePreferences() {
       await setDoc(docRef, { preferredCategories: categories }, { merge: true });
       setPreferences(categories);
     } catch (error) {
-      console.error('Failed to save preferences', error);
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
       throw error;
     }
   };

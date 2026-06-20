@@ -77,10 +77,8 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const setReadingArticle = (article: Article | null) => {
-    if (article) {
-      window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article } } }));
-    }
+  const setReadingArticleWithContext = (article: Article, list: Article[]) => {
+    window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article, list } } }));
   };
   const [articles, setArticles] = useState<Article[]>(TRENDING_ARTICLES);
   const { searchQuery } = useSearch();
@@ -111,7 +109,24 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>('For You');
   const [selectedScope, setSelectedScope] = useState<'Local' | 'Global'>('Global');
 
+  React.useEffect(() => {
+    if (searchQuery && selectedCategory === 'For You') {
+      setSelectedCategory('All');
+    }
+  }, [searchQuery]);
+
   const filteredArticles = articles.filter(article => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        article.title.toLowerCase().includes(q) ||
+        (article.content && article.content.toLowerCase().includes(q)) ||
+        (article.tags && article.tags.some(tag => tag.toLowerCase().includes(q))) ||
+        article.location.toLowerCase().includes(q) ||
+        article.category.toLowerCase().includes(q)
+      );
+    }
+
     if (selectedScope && article.scope && article.scope !== selectedScope) {
       return false;
     }
@@ -124,15 +139,7 @@ export default function Home() {
       return false;
     }
     
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      article.title.toLowerCase().includes(q) ||
-      (article.content && article.content.toLowerCase().includes(q)) ||
-      (article.tags && article.tags.some(tag => tag.toLowerCase().includes(q))) ||
-      article.location.toLowerCase().includes(q) ||
-      article.category.toLowerCase().includes(q)
-    );
+    return true;
   });
 
   const availableCategories = ['For You', 'All', ...Array.from(new Set(articles.map(a => a.category))) as string[]];
@@ -230,7 +237,7 @@ export default function Home() {
             {articles.slice(0, 5).map((article, index) => (
               <article 
                 key={`digest-${article.id}`} 
-                onClick={() => setReadingArticle(article)}
+                onClick={() => setReadingArticleWithContext(article, articles.slice(0, 5))}
                 className="snap-always snap-start shrink-0 w-[85%] md:w-[60%] lg:w-[40%] bg-brand-surface-lowest rounded-2xl shadow-sm border border-brand-outline-variant overflow-hidden group cursor-pointer hover:shadow-md transition-shadow flex flex-col"
               >
                 <div className="h-56 relative overflow-hidden">
@@ -359,7 +366,7 @@ export default function Home() {
               <article 
                 key={article.id} 
                 className="bg-brand-surface-lowest rounded-xl shadow-sm border border-brand-outline-variant overflow-hidden flex flex-col hover:shadow-md transition-shadow group cursor-pointer"
-                onClick={() => setReadingArticle(article)}
+                onClick={() => setReadingArticleWithContext(article, filteredArticles)}
               >
                 <div className="h-48 overflow-hidden relative">
                   <img src={article.imageUrl} alt={article.category} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -495,7 +502,7 @@ export default function Home() {
               <article 
                 key={article.id} 
                 className="bg-brand-surface-lowest rounded-xl border border-brand-outline hover:border-brand-secondary hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer"
-                onClick={() => setReadingArticle(article)}
+                onClick={() => setReadingArticleWithContext(article, recommendedArticles)}
               >
                 {article.imageUrl && (
                   <div className="h-40 overflow-hidden relative">

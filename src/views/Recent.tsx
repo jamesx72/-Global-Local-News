@@ -17,10 +17,8 @@ export default function Recent() {
   const { searchQuery } = useSearch();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const setReadingArticle = (article: Article | null) => {
-    if (article) {
-      window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article } } }));
-    }
+  const setReadingArticleWithContext = (article: Article, list: Article[]) => {
+    window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article, list } } }));
   };
 
   const filteredRecentArticles = recentArticles.filter(article => {
@@ -98,7 +96,7 @@ export default function Recent() {
               <article 
                 key={article.id} 
                 className="bg-brand-surface-lowest rounded-xl shadow-sm border border-brand-outline-variant overflow-hidden flex flex-col hover:shadow-md transition-shadow group cursor-pointer"
-                onClick={() => setReadingArticle(article)}
+                onClick={() => setReadingArticleWithContext(article, filteredRecentArticles)}
               >
                 <div className="h-48 overflow-hidden relative">
                   <img src={article.imageUrl} alt={article.category} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

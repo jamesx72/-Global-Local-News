@@ -26,6 +26,7 @@ interface SettingsState {
   baseFontSize: string;
   theme: string;
   readerMode: boolean;
+  showShortcutModal: boolean;
 }
 
 export default function Settings() {
@@ -56,7 +57,8 @@ export default function Settings() {
         typography: parsed.typography || 'classic',
         baseFontSize: parsed.baseFontSize || 'medium',
         theme: parsed.theme || 'dark',
-        readerMode: parsed.readerMode || false
+        readerMode: parsed.readerMode || false,
+        showShortcutModal: parsed.showShortcutModal !== undefined ? parsed.showShortcutModal : true
       };
     } catch (e) {
       return {
@@ -70,7 +72,8 @@ export default function Settings() {
         typography: 'classic',
         baseFontSize: 'medium',
         theme: 'dark',
-        readerMode: false
+        readerMode: false,
+        showShortcutModal: true
       };
     }
   });
@@ -450,6 +453,15 @@ export default function Settings() {
                       </div>
                       <div className={`w-10 h-6 rounded-full transition-colors relative ${settings.readerMode ? 'bg-brand-success' : 'bg-gray-300'}`} onClick={() => setSettings({...settings, readerMode: !settings.readerMode})}>
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.readerMode ? 'left-5' : 'left-1'}`} />
+                      </div>
+                    </label>
+                    <label className="flex items-center justify-between p-4 bg-brand-surface border border-brand-outline-variant rounded-xl cursor-pointer hover:border-gray-200 transition-colors">
+                      <div>
+                        <div className="text-sm font-bold text-brand-primary mb-1">Show Shortcut Modal</div>
+                        <div className="text-[11px] text-gray-500 uppercase tracking-widest">Display the keyboard shortcut helper modal in the bottom-right corner.</div>
+                      </div>
+                      <div className={`w-10 h-6 rounded-full transition-colors relative ${settings.showShortcutModal ? 'bg-brand-success' : 'bg-gray-300'}`} onClick={() => setSettings({...settings, showShortcutModal: !settings.showShortcutModal})}>
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.showShortcutModal ? 'left-5' : 'left-1'}`} />
                       </div>
                     </label>
                   </div>
