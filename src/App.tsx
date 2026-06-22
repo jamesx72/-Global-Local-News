@@ -56,8 +56,12 @@ export default function App() {
     applyTypographyAndTheme();
     window.addEventListener('app_settings_changed', applyTypographyAndTheme);
     
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', applyTypographyAndTheme);
+
     return () => {
       window.removeEventListener('app_settings_changed', applyTypographyAndTheme);
+      mediaQuery.removeEventListener('change', applyTypographyAndTheme);
     };
   }, []);
 

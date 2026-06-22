@@ -56,7 +56,7 @@ export default function Settings() {
         language: parsed.language || 'en',
         typography: parsed.typography || 'classic',
         baseFontSize: parsed.baseFontSize || 'medium',
-        theme: parsed.theme || 'dark',
+        theme: parsed.theme || 'system',
         readerMode: parsed.readerMode || false,
         showShortcutModal: parsed.showShortcutModal !== undefined ? parsed.showShortcutModal : true
       };
@@ -71,7 +71,7 @@ export default function Settings() {
         language: 'en',
         typography: 'classic',
         baseFontSize: 'medium',
-        theme: 'dark',
+        theme: 'system',
         readerMode: false,
         showShortcutModal: true
       };
@@ -394,18 +394,29 @@ export default function Settings() {
                   <h3 className="text-xl font-serif text-brand-primary border-b border-brand-outline-variant pb-4 mb-6">System Preferences</h3>
                   
                   <div className="grid gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] uppercase tracking-[0.2em] text-gray-500 block">Appearance</label>
-                      <select 
-                        value={settings.theme}
-                        onChange={(e) => setSettings({...settings, theme: e.target.value})}
-                        className="w-full bg-brand-surface border border-brand-outline-variant rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-brand-secondary transition-colors text-brand-primary appearance-none"
-                      >
-                        <option value="system">System Default</option>
-                        <option value="dark">Dark Mode</option>
-                        <option value="light">Light Mode</option>
-                      </select>
-                    </div>
+                    <label className="flex items-center justify-between p-4 bg-brand-surface border border-brand-outline-variant rounded-xl cursor-pointer hover:border-gray-200 transition-colors">
+                      <div>
+                        <div className="text-sm font-bold text-brand-primary mb-1">Auto-switch Theme</div>
+                        <div className="text-[11px] text-gray-500 uppercase tracking-widest">Match system light/dark mode</div>
+                      </div>
+                      <div className={`w-10 h-6 rounded-full transition-colors relative ${settings.theme === 'system' ? 'bg-brand-success' : 'bg-gray-300'}`} onClick={() => setSettings({...settings, theme: settings.theme === 'system' ? 'dark' : 'system'})}>
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.theme === 'system' ? 'left-5' : 'left-1'}`} />
+                      </div>
+                    </label>
+
+                    {settings.theme !== 'system' && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase tracking-[0.2em] text-gray-500 block">Appearance</label>
+                        <select 
+                          value={settings.theme}
+                          onChange={(e) => setSettings({...settings, theme: e.target.value})}
+                          className="w-full bg-brand-surface border border-brand-outline-variant rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-brand-secondary transition-colors text-brand-primary appearance-none"
+                        >
+                          <option value="dark">Dark Mode</option>
+                          <option value="light">Light Mode</option>
+                        </select>
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <label className="text-[10px] uppercase tracking-[0.2em] text-gray-500 block">Typography Settings</label>

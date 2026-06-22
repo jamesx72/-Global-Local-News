@@ -17,6 +17,7 @@ export interface Article {
   tags?: string[];
   scope?: 'Local' | 'Global';
   author?: string;
+  authorBio?: string;
   publicationDate?: string;
 }
 

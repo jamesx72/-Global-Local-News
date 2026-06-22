@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square, Clock, Printer, User, Calendar, ArrowUp, BookOpen, Highlighter, Copy } from 'lucide-react';
+import { ArrowLeft, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square, Clock, Printer, User, Calendar, ArrowUp, BookOpen, Highlighter, Copy, Link, Check, Heart } from 'lucide-react';
+import { doc, setDoc, deleteDoc, updateDoc, increment, onSnapshot, collection } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../hooks/useAuth';
 import { Article, useBookmarks } from '../hooks/useBookmarks';
 import { useReadLater } from '../hooks/useReadLater';
 import { useSearch } from '../hooks/useSearch';
@@ -21,8 +24,6 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
     window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'home', data: null } }));
   };
 
-  const [comments, setComments] = useState<any[]>([]);
-  const [newComment, setNewComment] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmarks();
@@ -42,6 +43,75 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
   const [highlights, setHighlights] = useState<string[]>([]);
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
   const [selectedText, setSelectedText] = useState('');
+
+  const { user, signInWithGoogle } = useAuth();
+  const [likesCount, setLikesCount] = useState<number>(0);
+  const [hasLiked, setHasLiked] = useState<boolean>(false);
+  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [article.id]);
+
+  useEffect(() => {
+    const fetchRelated = async () => {
+      if (article.tags && article.tags.length > 0) {
+        try {
+          const firstTag = article.tags[0];
+          const res = await fetch('/api/news/search?q=' + encodeURIComponent(firstTag));
+          if (res.ok) {
+            const data = await res.json();
+            if (data.articles) {
+              const filtered = data.articles.filter((a: Article) => a.id !== article.id).slice(0, 3);
+              setRelatedArticles(filtered);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch related articles");
+        }
+      }
+    };
+    fetchRelated();
+  }, [article.id, article.tags]);
+
+  useEffect(() => {
+    const likesRef = collection(db, 'articles', article.id, 'likes');
+    const unsubscribe = onSnapshot(likesRef, (snapshot) => {
+      setLikesCount(snapshot.size);
+      if (user) {
+        setHasLiked(snapshot.docs.some(doc => doc.id === user.uid));
+      } else {
+        setHasLiked(false);
+      }
+    }, (error) => {
+      console.error('Firestore Error observing likes:', error);
+    });
+
+    return () => unsubscribe();
+  }, [article.id, user]);
+
+  const handleLike = async () => {
+    if (!user) {
+      addNotification('Please sign in to like articles', 'info');
+      signInWithGoogle();
+      return;
+    }
+    
+    try {
+      const likeDocRef = doc(db, 'articles', article.id, 'likes', user.uid);
+      if (hasLiked) {
+        await deleteDoc(likeDocRef);
+      } else {
+        await setDoc(likeDocRef, {
+          userId: user.uid,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error("Error updating likes", error);
+      addNotification('Failed to update like status', 'error');
+    }
+  };
 
   const increaseFontSize = () => setFontSizeScale(prev => Math.min(prev + 0.1, 2));
   const decreaseFontSize = () => setFontSizeScale(prev => Math.max(prev - 0.1, 0.5));
@@ -81,7 +151,19 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
   const articleBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    window.scrollTo(0, 0); // Reset scroll on load
+    try {
+      const savedScroll = window.localStorage.getItem(`app_article_scroll_${article.id}`);
+      if (savedScroll) {
+        // Use a short timeout to ensure content is rendered before scrolling
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedScroll, 10));
+        }, 100);
+      } else {
+        window.scrollTo(0, 0); // Reset scroll on load
+      }
+    } catch (e) {
+      window.scrollTo(0, 0);
+    }
     
     try {
       const savedHighlights = window.localStorage.getItem(`app_highlights_${article.id}`);
@@ -90,8 +172,16 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
       }
     } catch (e) {}
 
+    let scrollTimeout: NodeJS.Timeout;
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
+      
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        try {
+          window.localStorage.setItem(`app_article_scroll_${article.id}`, window.scrollY.toString());
+        } catch (e) {}
+      }, 500);
     };
     window.addEventListener('scroll', handleScroll);
     
@@ -130,6 +220,7 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('app_settings_changed', handleSettingsChange);
       window.speechSynthesis.cancel();
+      clearTimeout(scrollTimeout);
     };
   }, [article.id]);
 
@@ -186,23 +277,48 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
         setIsPaused(true);
       }
     } else {
-      const utterance = new SpeechSynthesisUtterance(`${article?.title ?? ''}. ${textToSpeak}`);
-      utterance.rate = playbackRate;
-      utterance.onend = () => {
-        setIsPlaying(false);
-        setIsPaused(false);
-        utteranceRef.current = null;
+      window.speechSynthesis.cancel();
+      const fullText = `${article?.title ?? ''}. ${textToSpeak}`;
+      // Split into sentences to avoid Chrome's 15-second speech synthesis bug
+      const chunks = fullText.match(/[^.!?]+[.!?]+/g) || [fullText];
+      let currentChunk = 0;
+      
+      const speakNextChunk = () => {
+        if (currentChunk >= chunks.length) {
+          setIsPlaying(false);
+          setIsPaused(false);
+          utteranceRef.current = null;
+          return;
+        }
+        
+        const utterance = new SpeechSynthesisUtterance(chunks[currentChunk].trim());
+        utterance.rate = playbackRate;
+        utterance.onend = () => {
+          currentChunk++;
+          // Only continue if not cancelled
+          if (utteranceRef.current) {
+            speakNextChunk();
+          }
+        };
+        utterance.onerror = () => {
+          setIsPlaying(false);
+          setIsPaused(false);
+          utteranceRef.current = null;
+        };
+        
+        utteranceRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
       };
-      utteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+
       setIsPlaying(true);
       setIsPaused(false);
+      speakNextChunk();
     }
   };
 
   const handleStopAudio = () => {
-    window.speechSynthesis.cancel();
     utteranceRef.current = null;
+    window.speechSynthesis.cancel();
     setIsPlaying(false);
     setIsPaused(false);
   };
@@ -261,18 +377,26 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             <button onClick={() => toggleReadLater(article)} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Read Later">
               <Clock size={18} className={isReadLater(article.id) ? "text-brand-secondary" : ""} />
             </button>
-            <div className="relative">
+            <button onClick={() => {
+              const url = `${window.location.origin}/article/${article.id}`;
+              handleCopyToClipboard(url);
+            }} className="p-2 rounded-full hover:bg-white/10 transition-colors relative" title="Copy Link">
+              {copiedId === article.id ? <Check size={18} className="text-brand-success" /> : <Link size={18} />}
               {copiedId === article.id && (
-                <span className="absolute right-full mr-2 whitespace-nowrap text-[10px] uppercase font-bold tracking-wider text-brand-success animate-in fade-in slide-in-from-right-4 duration-200 pointer-events-none mt-2">
-                  Copied to clipboard
+                <span className="absolute right-full mr-2 top-2 whitespace-nowrap text-[10px] uppercase font-bold tracking-wider text-brand-success animate-in fade-in slide-in-from-right-4 duration-200 pointer-events-none">
+                  Copied
                 </span>
               )}
-              <button onClick={handleShare} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Share Article">
-                <Share2 size={18} className={copiedId === article.id ? "text-brand-success" : ""} />
-              </button>
-            </div>
+            </button>
+            <button onClick={handleShare} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Share Article">
+              <Share2 size={18} />
+            </button>
             <button onClick={() => toggleBookmark(article)} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Bookmark Article">
               {bookmarked ? <BookmarkCheck size={18} className="text-brand-secondary" /> : <Bookmark size={18} />}
+            </button>
+            <button onClick={handleLike} className={`flex items-center gap-1 p-2 rounded-full transition-colors ${hasLiked ? 'text-brand-error' : 'hover:bg-white/10'}`} title="Like Article">
+              <Heart size={18} className={hasLiked ? "fill-current" : ""} />
+              {likesCount > 0 && <span className="text-[10px] font-bold px-1">{likesCount}</span>}
             </button>
             <button onClick={() => setReaderMode(!readerMode)} className={`p-2 rounded-full transition-colors ${readerMode ? 'bg-brand-secondary text-brand-surface-lowest' : 'hover:bg-white/10'}`} title="Reader Mode">
               <BookOpen size={18} />
@@ -296,9 +420,25 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             </div>
           )}
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-brand-primary leading-tight mb-8">
-             {article.title}
-          </h1>
+          <div className="flex flex-col gap-6 mb-8">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-brand-primary leading-tight">
+               {article.title}
+            </h1>
+            
+            {article.tags && article.tags.length > 0 && !readerMode && (
+              <div className="flex flex-wrap gap-2">
+                {article.tags.map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTopicClick(tag)}
+                    className="px-3 py-1 bg-brand-surface-lowest border border-brand-outline-variant hover:border-brand-secondary text-brand-primary text-xs font-bold uppercase tracking-widest rounded-full transition-all shadow-sm"
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 text-sm text-brand-on-surface/60 font-medium">
             <div className="flex items-center gap-2">
@@ -313,6 +453,21 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
               <Clock size={16} className="text-brand-secondary" />
               <span>{getReadingTime(translatedContent || articleContent)} min read</span>
             </div>
+            {!readerMode && (
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handleLike} 
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-bold text-xs tracking-widest uppercase transition-all ${
+                    hasLiked 
+                      ? 'bg-red-50 text-red-500 border border-red-200' 
+                      : 'bg-brand-surface-lowest text-brand-on-surface/60 border border-brand-outline-variant hover:border-brand-secondary hover:text-brand-primary'
+                  }`}
+                >
+                  <Heart size={14} className={hasLiked ? 'fill-current' : ''} /> 
+                  {likesCount} {likesCount === 1 ? 'Like' : 'Likes'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -386,20 +541,22 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
           </div>
         )}
 
-        {/* Topics Section */}
-        {!readerMode && article.tags && article.tags.length > 0 && (
-          <div className="max-w-prose mx-auto mb-12">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-brand-on-surface/50 mb-3">Topics</h3>
-            <div className="flex flex-wrap gap-2">
-              {article.tags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => handleTopicClick(tag)}
-                  className="px-4 py-2 bg-brand-surface-low border border-brand-outline-variant hover:border-brand-secondary text-brand-primary text-sm rounded-full transition-colors font-medium"
-                >
-                  #{tag}
-                </button>
-              ))}
+        {/* Topics Section Removed (moved to top) */}
+
+        {/* End of article author info */}
+        {article.author && !readerMode && (
+          <div className="max-w-prose mx-auto border-t border-brand-outline-variant pt-12 pb-6 mt-12 flex flex-col md:flex-row items-center gap-6">
+            <div className="w-20 h-20 rounded-full bg-brand-surface border border-brand-outline shrink-0 overflow-hidden flex items-center justify-center">
+              <User size={32} className="text-brand-on-surface/30" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <div className="text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1">About the Author</div>
+              <h4 className="font-serif text-xl font-bold text-brand-primary mb-2 flex items-center justify-center md:justify-start gap-2">
+                {article.author}
+              </h4>
+              <p className="text-brand-on-surface/80 text-sm leading-relaxed">
+                {article.authorBio || `Contributing writer covering the ${article.category || 'general'} section.`}
+              </p>
             </div>
           </div>
         )}
@@ -410,9 +567,39 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             <button onClick={() => toggleReadLater(article)} className="flex items-center justify-center gap-2 font-bold uppercase tracking-widest text-sm bg-brand-surface-lowest text-brand-primary px-8 py-4 rounded-full border border-brand-outline shadow-sm hover:border-brand-secondary transition-colors">
               <Clock size={18} /> {isReadLater(article.id) ? 'Saved' : 'Read Later'}
             </button>
+            <button onClick={() => handleCopyToClipboard(`${window.location.origin}/article/${article.id}`)} className="flex items-center justify-center gap-2 font-bold uppercase tracking-widest text-sm bg-brand-surface-lowest text-brand-primary px-8 py-4 rounded-full border border-brand-outline shadow-sm hover:border-brand-secondary transition-colors">
+              {copiedId === article.id ? <Check size={18} className="text-brand-success" /> : <Link size={18} />}
+              {copiedId === article.id ? 'Copied' : 'Copy Link'}
+            </button>
             <button onClick={handleShare} className="flex items-center justify-center gap-2 font-bold uppercase tracking-widest text-sm bg-brand-primary text-brand-surface-lowest px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all">
               <Share2 size={18} /> Share Article
             </button>
+          </div>
+        )}
+
+        {/* Related Articles */}
+        {!readerMode && relatedArticles.length > 0 && (
+          <div className="max-w-prose mx-auto border-t border-brand-outline-variant py-12">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-brand-on-surface/50 mb-6 flex items-center gap-2">
+              <Sparkles size={16} className="text-brand-secondary" /> Related Articles
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {relatedArticles.map((relArticle) => (
+                <div 
+                  key={relArticle.id}
+                  onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'articleDetail', data: { article: relArticle } } }))}
+                  className="bg-brand-surface-lowest rounded-xl shadow-sm border border-brand-outline-variant overflow-hidden cursor-pointer hover:shadow-md transition-shadow group flex flex-col"
+                >
+                  <div className="h-24 overflow-hidden relative">
+                    <img src={relArticle.imageUrl || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=400&q=80'} alt={relArticle.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  </div>
+                  <div className="p-3 flex flex-col flex-1">
+                    <div className="text-[10px] text-brand-secondary font-bold uppercase mb-1 tracking-wider">{relArticle.category}</div>
+                    <h4 className="font-serif font-bold text-sm text-brand-primary leading-tight line-clamp-3 group-hover:text-brand-primary-container">{relArticle.title}</h4>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

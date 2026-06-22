@@ -11,9 +11,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Initialize Firestore with experimentalForceLongPolling for iFrame compatibility
+// Initialize Firestore with experimentalAutoDetectLongPolling for iFrame compatibility
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true
+  experimentalAutoDetectLongPolling: true
 }, firebaseConfig.firestoreDatabaseId);
 
 // Initialize Storage

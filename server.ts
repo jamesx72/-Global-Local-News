@@ -48,6 +48,8 @@ async function startServer() {
               readingTime: Math.max(3, Math.floor(Math.random() * 5) + 2), // Mock reading time
               content: item.contentSnippet || item.content || item.description || '',
               timestamp: item.pubDate,
+              author: item.creator || item.author || 'Editorial Staff',
+              authorBio: `An editorial writer for the ${feedInfo.category} section.`,
               tags: Array.isArray(item.categories)
                 ? item.categories.map((c: any) => typeof c === 'string' ? c : (c?._ || c?.domain || String(c)))
                 : [feedInfo.category]
@@ -73,6 +75,84 @@ async function startServer() {
     } catch (error) {
       console.error("Failed to fetch live news:", error);
       res.status(500).json({ error: "Failed to fetch live news" });
+    }
+  });
+
+  // API Route for article search
+  app.get("/api/news/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.json({ articles: [] });
+      }
+
+      // Fetch the latest articles from the active feeds
+      const sources = [
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'World' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', category: 'Tech' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', category: 'Science' }
+      ];
+
+      const feedPromises = sources.map(async (feedInfo) => {
+        try {
+          const feed = await parser.parseURL(feedInfo.url);
+          return feed.items.map(item => ({
+            id: item.guid || item.link || '',
+            title: item.title || 'Untitled',
+            content: item.contentSnippet || item.content || '',
+            category: feedInfo.category,
+            location: 'Global',
+            imageUrl: 'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=800&q=80',
+            trustScore: Math.floor(Math.random() * 20) + 80,
+            scope: 'Global',
+            timestamp: item.pubDate,
+            author: item.creator || item.author || 'Editorial Staff',
+            authorBio: `An editorial writer for the ${feedInfo.category} section.`,
+            tags: Array.isArray(item.categories)
+              ? item.categories.map((c: any) => typeof c === 'string' ? c : (c?._ || c?.domain || String(c)))
+              : [feedInfo.category]
+          }));
+        } catch (err) {
+          return [];
+        }
+      });
+
+      const allArticlesArrays = await Promise.all(feedPromises);
+      let allArticles = allArticlesArrays.flat();
+      
+      const query = q.toLowerCase();
+      
+      // Basic Full-Text Search Implementation
+      // Score-based ranking
+      const rankedArticles = allArticles.map(article => {
+        let score = 0;
+        
+        // Exact title match gives high score
+        if (article.title.toLowerCase().includes(query)) score += 10;
+        
+        // Exact content match
+        if (article.content.toLowerCase().includes(query)) score += 5;
+        
+        // Tokenized matching
+        const tokens = query.split(' ').filter(Boolean);
+        for (const token of tokens) {
+           if (article.title.toLowerCase().includes(token)) score += 3;
+           if (article.content.toLowerCase().includes(token)) score += 1;
+           if (article.tags && article.tags.some((t: string) => t.toLowerCase().includes(token))) score += 4;
+           if (article.category.toLowerCase().includes(token)) score += 4;
+        }
+
+        return { ...article, searchScore: score };
+      }).filter(a => a.searchScore > 0);
+
+      // Sort by relevance score
+      rankedArticles.sort((a, b) => b.searchScore - a.searchScore);
+
+      // Remove the searchScore property from the response if needed, or keep it for the frontend
+      res.json({ articles: rankedArticles.map(({searchScore, ...rest}) => rest) });
+    } catch (error) {
+      console.error("Search API error:", error);
+      res.status(500).json({ error: "Failed to perform search" });
     }
   });
 

@@ -107,42 +107,63 @@ export default function Home() {
   }, [readLater, articles]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('For You');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedScope, setSelectedScope] = useState<'Local' | 'Global'>('Global');
+
+  const [isSearching, setIsSearching] = useState(false);
 
   React.useEffect(() => {
     if (searchQuery && selectedCategory === 'For You') {
       setSelectedCategory('All');
     }
+
+    if (searchQuery) {
+      const delayDebounceFn = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          const res = await fetch('/api/news/search?q=' + encodeURIComponent(searchQuery));
+          if (res.ok) {
+            const data = await res.json();
+            if (data.articles) {
+              setArticles(data.articles);
+            }
+          }
+        } catch (e) {
+          console.error('Search failed', e);
+        }
+        setIsSearching(false);
+      }, 400);
+
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+      fetchLiveNews();
+    }
   }, [searchQuery]);
 
   const filteredArticles = articles.filter(article => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        article.title.toLowerCase().includes(q) ||
-        (article.content && article.content.toLowerCase().includes(q)) ||
-        (article.tags && article.tags.some(tag => tag.toLowerCase().includes(q))) ||
-        article.location.toLowerCase().includes(q) ||
-        article.category.toLowerCase().includes(q)
-      );
-    }
-
     if (selectedScope && article.scope && article.scope !== selectedScope) {
       return false;
     }
 
-    if (selectedCategory === 'For You') {
-      if (preferences && preferences.length > 0) {
-        if (!preferences.includes(article.category)) return false;
-      }
-    } else if (selectedCategory !== 'All' && article.category !== selectedCategory) {
+    if (selectedTag && (!article.tags || !article.tags.includes(selectedTag))) {
       return false;
+    }
+
+    if (!searchQuery) {
+      if (selectedCategory === 'For You') {
+        if (preferences && preferences.length > 0) {
+          if (!preferences.includes(article.category)) return false;
+        }
+      } else if (selectedCategory !== 'All' && article.category !== selectedCategory) {
+        return false;
+      }
     }
     
     return true;
   });
 
   const availableCategories = ['For You', 'All', ...Array.from(new Set(articles.map(a => a.category))) as string[]];
+  const allUniqueTags = Array.from(new Set(articles.flatMap(a => a.tags || []))).filter(Boolean).slice(0, 20); // Top 20 tags
 
   const fetchLiveNews = async () => {
     setIsRefreshing(true);
@@ -318,9 +339,9 @@ export default function Home() {
           {availableCategories.map(category => (
             <button
               key={category}
-              onClick={() => setSelectedCategory(category)}
+              onClick={() => { setSelectedCategory(category); setSelectedTag(null); }}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
-                selectedCategory === category 
+                selectedCategory === category && !selectedTag
                   ? 'bg-brand-primary text-brand-surface-lowest' 
                   : 'bg-brand-surface-lowest text-gray-500 hover:bg-gray-200 border border-brand-outline-variant'
               }`}
@@ -336,6 +357,24 @@ export default function Home() {
             Personalize
           </button>
         </div>
+
+        {allUniqueTags.length > 0 && selectedCategory !== 'For You' && (
+          <div className="flex gap-2 overflow-x-auto nice-scroll pb-4 mb-4 mt-[-8px]">
+            {allUniqueTags.map(tag => (
+               <button
+                 key={tag as string}
+                 onClick={() => setSelectedTag(selectedTag === tag ? null : (tag as string))}
+                 className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-colors border ${
+                   selectedTag === tag
+                     ? 'bg-brand-secondary text-brand-surface-lowest border-brand-secondary'
+                     : 'bg-brand-surface-lowest text-gray-500 border-brand-outline-variant hover:border-gray-400'
+                 }`}
+               >
+                 # {tag}
+               </button>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredArticles.length === 0 ? (

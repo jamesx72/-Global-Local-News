@@ -1,53 +1,134 @@
 {
-  "collections": [
-    {
-      "name": "users",
-      "document": {
-        "fields": [
-          { "name": "uid", "type": "string" },
-          { "name": "email", "type": "string" },
-          { "name": "displayName", "type": "string" },
-          { "name": "createdAt", "type": "timestamp" }
-        ]
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user profile in the application.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "timestamp" }
       },
-      "subcollections": [
-        {
-          "name": "bookmarks",
-          "document": {
-            "fields": [
-              { "name": "articleId", "type": "string" },
-              { "name": "title", "type": "string" },
-              { "name": "category", "type": "string" },
-              { "name": "location", "type": "string" },
-              { "name": "imageUrl", "type": "string" },
-              { "name": "trustScore", "type": "number" },
-              { "name": "timestamp", "type": "string" },
-              { "name": "content", "type": "string" },
-              { "name": "readingTime", "type": "number" },
-              { "name": "tags", "type": "array", "items": "string" },
-              { "name": "savedAt", "type": "timestamp" }
-            ]
-          }
-        },
-        {
-          "name": "recentArticles",
-          "document": {
-            "fields": [
-              { "name": "articleId", "type": "string" },
-              { "name": "title", "type": "string" },
-              { "name": "category", "type": "string" },
-              { "name": "location", "type": "string" },
-              { "name": "imageUrl", "type": "string" },
-              { "name": "trustScore", "type": "number" },
-              { "name": "timestamp", "type": "string" },
-              { "name": "content", "type": "string" },
-              { "name": "readingTime", "type": "number" },
-              { "name": "tags", "type": "array", "items": "string" },
-              { "name": "viewedAt", "type": "timestamp" }
-            ]
-          }
-        }
-      ]
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "An article bookmarked by a user.",
+      "type": "object",
+      "properties": {
+        "articleId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "trustScore": { "type": "number" },
+        "timestamp": { "type": "string" },
+        "content": { "type": "string" },
+        "readingTime": { "type": "number" },
+        "tags": { "type": "array", "items": "string" },
+        "savedAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["articleId"]
+    },
+    "RecentArticle": {
+      "title": "Recent Article",
+      "description": "An article recently viewed by a user.",
+      "type": "object",
+      "properties": {
+        "articleId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "trustScore": { "type": "number" },
+        "timestamp": { "type": "string" },
+        "content": { "type": "string" },
+        "readingTime": { "type": "number" },
+        "tags": { "type": "array", "items": "string" },
+        "viewedAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["articleId"]
+    },
+    "PaymentMethod": {
+      "title": "Payment Method",
+      "description": "A payment method for a user.",
+      "type": "object",
+      "properties": {
+        "methodId": { "type": "string" }
+      }
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A transaction for a user.",
+      "type": "object",
+      "properties": {
+        "transactionId": { "type": "string" }
+      }
+    },
+    "ReadLaterArticle": {
+      "title": "Read Later Article",
+      "description": "An article saved to read later.",
+      "type": "object",
+      "properties": {
+        "articleId": { "type": "string" }
+      }
+    },
+    "ArticleLike": {
+      "title": "Article Like",
+      "description": "A user's like on an article.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["userId", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment left by a user on an article.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["userId", "authorName", "text"]
     }
-  ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Directory of users."
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": { "$ref": "#/entities/Bookmark" },
+      "description": "Bookmarks for a user."
+    },
+    "/users/{userId}/recentArticles/{articleId}": {
+      "schema": { "$ref": "#/entities/RecentArticle" },
+      "description": "Recently viewed articles for a user."
+    },
+    "/users/{userId}/paymentMethods/{methodId}": {
+      "schema": { "$ref": "#/entities/PaymentMethod" },
+      "description": "Saved payment methods."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Transaction history for a user."
+    },
+    "/users/{userId}/readLater/{articleId}": {
+      "schema": { "$ref": "#/entities/ReadLaterArticle" },
+      "description": "Articles saved for reading later."
+    },
+    "/articles/{articleId}/likes/{userId}": {
+      "schema": { "$ref": "#/entities/ArticleLike" },
+      "description": "Likes from users on an article."
+    },
+    "/articles/{articleId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Comments on an article."
+    }
+  }
 }
