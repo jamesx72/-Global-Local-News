@@ -32,7 +32,7 @@ async function startServer() {
       const feedPromises = feedsToFetch.map(async (feedInfo) => {
         try {
           const feed = await parser.parseURL(feedInfo.url);
-          return feed.items.map((item, index) => {
+          return feed.items.map((item: any, index) => {
             let imageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80';
             if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
               imageUrl = item.mediaContent['$'].url;
@@ -93,10 +93,20 @@ async function startServer() {
         { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', category: 'Science' }
       ];
 
+      const Parser = (await import('rss-parser')).default;
+      const parser = new Parser({
+        customFields: {
+          item: [
+            ['media:content', 'mediaContent'],
+            ['description', 'description']
+          ],
+        }
+      });
+
       const feedPromises = sources.map(async (feedInfo) => {
         try {
           const feed = await parser.parseURL(feedInfo.url);
-          return feed.items.map(item => ({
+          return feed.items.map((item: any) => ({
             id: item.guid || item.link || '',
             title: item.title || 'Untitled',
             content: item.contentSnippet || item.content || '',
@@ -381,6 +391,60 @@ Content: ${content || 'No content provided'}`;
     } catch (error) {
       console.error("Sentiment error:", error);
       res.json({ sentiment: "Neutral" }); // Graceful degradation
+    }
+  });
+
+  // API Route for entity extraction
+  app.post("/api/entities", async (req, res) => {
+    try {
+      const { title, content } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "No content provided" });
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Gemini API Key is not configured." });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Extract up to 5 key entities (people, locations, organizations) from the following article.
+Respond ONLY with a valid JSON array of objects.
+Each object must have exactly these keys: "name" (the exact text in the article), "type" (one of "Person", "Location", "Organization"), and "description" (a 1-sentence summary of who/what they are in the context of the article).
+
+Title: ${title}
+Content: ${content}`;
+
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+      } catch (err: any) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          response = await ai.models.generateContent({
+            model: "gemini-1.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+          });
+        } catch (fallbackErr: any) {
+          return res.json({ entities: [] });
+        }
+      }
+
+      let entities = [];
+      try {
+        entities = JSON.parse(response.text || '[]');
+      } catch (e) {
+        console.error("Failed to parse entities JSON:", response.text);
+      }
+      
+      res.json({ entities });
+    } catch (error) {
+      console.error("Entities error:", error);
+      res.json({ entities: [] }); // Graceful degradation
     }
   });
 

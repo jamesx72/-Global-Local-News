@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, ZoomIn, ZoomOut, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square, Clock, Printer, User, Calendar, ArrowUp, BookOpen, Highlighter, Copy, Link, Check, Heart } from 'lucide-react';
+import { ArrowLeft, Share2, Bookmark, BookmarkCheck, MessageSquare, Sparkles, Layers, Play, Pause, Square, Clock, Printer, User, Calendar, ArrowUp, BookOpen, Highlighter, Copy, Link, Check, Heart, Sun, Moon, Search, X } from 'lucide-react';
 import { doc, setDoc, deleteDoc, updateDoc, increment, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -15,9 +15,19 @@ export interface ArticleDetailProps {
   article: Article;
 }
 
+interface Entity {
+  name: string;
+  type: string;
+  description: string;
+}
+
 export default function ArticleDetail({ article }: ArticleDetailProps) {
   const { addNotification } = useNotifications();
   const { setSearchQuery } = useSearch();
+
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [isLoadingEntities, setIsLoadingEntities] = useState(false);
 
   const handleTopicClick = (topic: string) => {
     setSearchQuery(topic);
@@ -40,9 +50,11 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [fontSizeScale, setFontSizeScale] = useState(1);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [highlights, setHighlights] = useState<string[]>([]);
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
   const [selectedText, setSelectedText] = useState('');
+  const [readerTheme, setReaderTheme] = useState<'classic' | 'dark'>('dark');
 
   const { user, signInWithGoogle } = useAuth();
   const [likesCount, setLikesCount] = useState<number>(0);
@@ -50,19 +62,23 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [article.id]);
+    try {
+      if (article) {
+        window.localStorage.setItem('last_viewed_article', JSON.stringify(article));
+      }
+    } catch (e) {}
+  }, [article.id, article]);
 
   useEffect(() => {
     const fetchRelated = async () => {
-      if (article.tags && article.tags.length > 0) {
+      const searchTerm = (article.tags && article.tags.length > 0) ? article.tags[0] : article.category;
+      if (searchTerm) {
         try {
-          const firstTag = article.tags[0];
-          const res = await fetch('/api/news/search?q=' + encodeURIComponent(firstTag));
+          const res = await fetch('/api/news/search?q=' + encodeURIComponent(searchTerm));
           if (res.ok) {
             const data = await res.json();
             if (data.articles) {
-              const filtered = data.articles.filter((a: Article) => a.id !== article.id).slice(0, 3);
+              const filtered = data.articles.filter((a: Article) => a.id !== article.id).slice(0, 4);
               setRelatedArticles(filtered);
             }
           }
@@ -72,7 +88,7 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
       }
     };
     fetchRelated();
-  }, [article.id, article.tags]);
+  }, [article.id, article.tags, article.category]);
 
   useEffect(() => {
     const likesRef = collection(db, 'articles', article.id, 'likes');
@@ -112,9 +128,6 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
       addNotification('Failed to update like status', 'error');
     }
   };
-
-  const increaseFontSize = () => setFontSizeScale(prev => Math.min(prev + 0.1, 2));
-  const decreaseFontSize = () => setFontSizeScale(prev => Math.max(prev - 0.1, 0.5));
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,10 +169,10 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
       if (savedScroll) {
         // Use a short timeout to ensure content is rendered before scrolling
         setTimeout(() => {
-          window.scrollTo(0, parseInt(savedScroll, 10));
+          window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'smooth' });
         }, 100);
       } else {
-        window.scrollTo(0, 0); // Reset scroll on load
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Reset scroll on load
       }
     } catch (e) {
       window.scrollTo(0, 0);
@@ -175,6 +188,14 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
     let scrollTimeout: NodeJS.Timeout;
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
+      
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (docHeight > 0) {
+        setScrollProgress((scrollTop / docHeight) * 100);
+      } else {
+        setScrollProgress(0);
+      }
       
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
@@ -231,6 +252,103 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
     Moving forward, key indicators will be monitored closely to evaluate performance. The integration of advanced analytics and real-time auditing provides an unprecedented level of transparency, which many hope will set a new standard for operations of this magnitude.
     
     "This is not just an incremental update," noted a leading analyst during the latest briefing. "It's a structural transformation that demands we rethink our foundational assumptions." Wait times for additional disclosures are expected to be short as the implementation quickly scales.`;
+
+  useEffect(() => {
+    if (targetLanguage === 'English') {
+      setTranslatedContent(null);
+      return;
+    }
+
+    const translateArticle = async () => {
+      setIsTranslating(true);
+      try {
+        const response = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: articleContent,
+            targetLanguage
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setTranslatedContent(data.translatedText);
+        } else {
+          addNotification('Translation failed', 'Could not translate the article.', 'error');
+          setTargetLanguage('English');
+        }
+      } catch (err) {
+        console.error(err);
+        addNotification('Translation Error', 'Failed to reach translation service.', 'error');
+        setTargetLanguage('English');
+      } finally {
+        setIsTranslating(false);
+      }
+    };
+
+    translateArticle();
+  }, [targetLanguage, articleContent, addNotification]);
+
+  useEffect(() => {
+    const fetchEntities = async () => {
+      const textToAnalyze = translatedContent || articleContent;
+      if (!textToAnalyze) return;
+      
+      setIsLoadingEntities(true);
+      try {
+        const response = await fetch('/api/entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: article.title,
+            content: textToAnalyze
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setEntities(data.entities || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoadingEntities(false);
+      }
+    };
+    
+    setEntities([]);
+    fetchEntities();
+  }, [article.id, article.title, articleContent, translatedContent]);
+
+  const renderParagraphWithEntities = (paragraph: string) => {
+    if (entities.length === 0) return <>{paragraph}</>;
+
+    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Sort descending by length so "New York City" matches before "New York"
+    const sortedEntities = [...entities].sort((a, b) => b.name.length - a.name.length);
+    const regexPattern = sortedEntities.map(e => escapeRegExp(e.name)).join('|');
+    if (!regexPattern) return <>{paragraph}</>;
+    
+    const regex = new RegExp(`(${regexPattern})`, 'g');
+    const parts = paragraph.split(regex);
+    
+    return parts.map((part, index) => {
+      const entity = sortedEntities.find(e => e.name === part);
+      if (entity) {
+        return (
+          <span 
+            key={index} 
+            className="cursor-pointer border-b border-brand-secondary text-brand-secondary hover:bg-brand-secondary/20 transition-colors bg-brand-secondary/10 px-1 rounded-sm"
+            onClick={() => setSelectedEntity(entity)}
+          >
+            {part}
+          </span>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   const handleShare = async () => {
     const url = `${window.location.origin}/article/${article.id}`;
@@ -333,6 +451,10 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
 
   return (
     <div className="min-h-screen bg-brand-surface pt-6 pb-20 px-4 w-full">
+      <div 
+        className="fixed top-0 left-0 h-1 bg-brand-primary z-50 transition-all duration-150" 
+        style={{ width: `${scrollProgress}%` }} 
+      />
       <div className="max-w-4xl mx-auto">
         <button 
           onClick={handleBack} 
@@ -355,6 +477,32 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             )}
             <div className="w-px h-6 bg-white/10 mx-2"></div>
             <select
+              value={playbackRate}
+              onChange={(e) => {
+                const newRate = parseFloat(e.target.value);
+                setPlaybackRate(newRate);
+                if (utteranceRef.current && isPlaying && !isPaused) {
+                  // Restart the current chunk with the new rate
+                  window.speechSynthesis.cancel();
+                  const utterance = new SpeechSynthesisUtterance(utteranceRef.current.text);
+                  utterance.rate = newRate;
+                  utterance.onend = utteranceRef.current.onend;
+                  utterance.onerror = utteranceRef.current.onerror;
+                  utteranceRef.current = utterance;
+                  window.speechSynthesis.speak(utterance);
+                }
+              }}
+              className="bg-transparent text-xs text-brand-on-surface/70 border border-brand-outline rounded p-1 outline-none mr-2"
+              title="Playback Speed"
+            >
+              <option value="0.75">0.75x</option>
+              <option value="1">1x</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+            </select>
+            <div className="w-px h-6 bg-white/10 mx-2"></div>
+            <select
               value={targetLanguage}
               onChange={(e) => setTargetLanguage(e.target.value)}
               className="bg-transparent text-xs text-brand-on-surface/70 border border-brand-outline rounded p-1 outline-none"
@@ -366,13 +514,17 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             </select>
           </div>
           <div className="flex items-center gap-2 text-brand-on-surface/70">
-            <button onClick={decreaseFontSize} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Decrease Font Size">
-              <ZoomOut size={18} />
-            </button>
-            <span className="text-xs font-mono w-8 text-center">{Math.round(fontSizeScale * 100)}%</span>
-            <button onClick={increaseFontSize} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Increase Font Size">
-              <ZoomIn size={18} />
-            </button>
+            <select
+              value={fontSizeScale}
+              onChange={(e) => setFontSizeScale(parseFloat(e.target.value))}
+              className="bg-transparent text-xs text-brand-on-surface/70 border border-brand-outline rounded p-1 outline-none"
+              title="Font Size"
+            >
+              <option value="0.8">Small</option>
+              <option value="1">Medium</option>
+              <option value="1.2">Large</option>
+              <option value="1.5">X-Large</option>
+            </select>
             <div className="w-px h-6 bg-white/10 mx-2"></div>
             <button onClick={() => toggleReadLater(article)} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Read Later">
               <Clock size={18} className={isReadLater(article.id) ? "text-brand-secondary" : ""} />
@@ -482,14 +634,24 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
         )}
 
         {/* Prose Body */}
-        <div 
-          ref={articleBodyRef}
-          className={`${readerMode ? 'font-serif text-brand-on-surface text-xl max-w-2xl' : 'font-sans text-brand-on-surface/80 text-lg max-w-prose'} leading-relaxed mx-auto prose-p:mb-6 nice-scroll pb-16 transition-all relative`}
-          style={{ fontSize: `${(readerMode ? 1.25 : 1.125) * fontSizeScale}rem`, lineHeight: readerMode ? 1.8 : 1.6 }}
-        >
-          {(translatedContent || articleContent).split('\n\n').map((paragraph, idx) => (
-            <p key={idx}>{paragraph.trim()}</p>
-          ))}
+        <div className="relative">
+          {isTranslating && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <div className="flex flex-col items-center gap-4 bg-brand-surface border border-brand-outline p-6 rounded-2xl shadow-2xl pointer-events-auto">
+                <div className="w-8 h-8 border-4 border-brand-secondary border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-bold tracking-wider text-brand-primary uppercase">Translating to {targetLanguage}...</span>
+              </div>
+            </div>
+          )}
+          <div 
+            ref={articleBodyRef}
+            className={`${readerMode ? 'font-serif text-xl max-w-2xl' : 'font-sans text-lg max-w-prose'} ${readerTheme === 'classic' ? 'bg-[#F9F7F1] text-gray-900 px-6 sm:px-12 py-10 rounded-2xl shadow-inner' : 'text-brand-on-surface/80'} leading-relaxed mx-auto prose-p:mb-6 nice-scroll pb-16 transition-all relative ${isTranslating ? 'opacity-50 blur-sm pointer-events-none' : ''}`}
+            style={{ fontSize: `${(readerMode ? 1.25 : 1.125) * fontSizeScale}rem`, lineHeight: readerMode ? 1.8 : 1.6 }}
+          >
+            {(translatedContent || articleContent).split('\n\n').map((paragraph, idx) => (
+              <p key={idx}>{renderParagraphWithEntities(paragraph.trim())}</p>
+            ))}
+          </div>
         </div>
 
         {/* Highlights Section */}
@@ -583,7 +745,7 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             <h3 className="text-sm font-bold uppercase tracking-wider text-brand-on-surface/50 mb-6 flex items-center gap-2">
               <Sparkles size={16} className="text-brand-secondary" /> Related Articles
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {relatedArticles.map((relArticle) => (
                 <div 
                   key={relArticle.id}
@@ -606,15 +768,64 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
         {/* Comments Section */}
         {!readerMode && <CommentsSection articleId={article.id} />}
         
-        {/* Scroll to Top Button */}
-        {showScrollTop && (
+        {/* Floating Actions */}
+        <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-50 print:hidden">
           <button
-            onClick={scrollToTop}
-            className="fixed bottom-8 right-8 p-3 bg-brand-primary text-brand-surface-lowest rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all z-50 flex items-center justify-center animate-in fade-in slide-in-from-bottom-8 duration-300"
-            title="Scroll to Top"
+            onClick={() => setReaderTheme(prev => prev === 'classic' ? 'dark' : 'classic')}
+            className={`p-3 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all flex items-center justify-center animate-in fade-in slide-in-from-bottom-8 duration-300 ${readerTheme === 'classic' ? 'bg-gray-900 text-[#F9F7F1]' : 'bg-brand-surface-lowest border border-brand-outline text-brand-primary'}`}
+            title={`Switch to ${readerTheme === 'classic' ? 'Elegant Dark' : 'Classic Newspaper'} Mode`}
           >
-            <ArrowUp size={20} />
+            {readerTheme === 'classic' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
+          <button
+            onClick={() => window.print()}
+            className="p-3 bg-brand-surface-lowest border border-brand-outline text-brand-primary rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all flex items-center justify-center animate-in fade-in slide-in-from-bottom-8 duration-300"
+            title="Print Article"
+          >
+            <Printer size={20} />
+          </button>
+          {showScrollTop && (
+            <button
+              onClick={scrollToTop}
+              className="p-3 bg-brand-primary text-brand-surface-lowest rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center animate-in fade-in slide-in-from-bottom-8 duration-300"
+              title="Scroll to Top"
+            >
+              <ArrowUp size={20} />
+            </button>
+          )}
+        </div>
+
+        {/* Entity Popup Modal */}
+        {selectedEntity && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-brand-surface/80 backdrop-blur-sm" onClick={() => setSelectedEntity(null)}>
+            <div 
+              className="bg-brand-surface-low border border-brand-outline rounded-2xl p-6 max-w-sm w-full shadow-2xl relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                className="absolute top-4 right-4 text-brand-on-surface/50 hover:text-brand-primary transition-colors"
+                onClick={() => setSelectedEntity(null)}
+              >
+                <X size={20} />
+              </button>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={16} className="text-brand-secondary" />
+                <span className="text-xs font-bold tracking-widest text-brand-secondary uppercase">{selectedEntity.type}</span>
+              </div>
+              <h3 className="text-xl font-bold font-serif text-brand-primary mb-3">{selectedEntity.name}</h3>
+              <p className="text-brand-on-surface/80 text-sm leading-relaxed mb-6">
+                {selectedEntity.description}
+              </p>
+              <a 
+                href={`https://www.google.com/search?q=${encodeURIComponent(selectedEntity.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-primary text-brand-surface-lowest font-bold text-sm hover:opacity-90 transition-opacity"
+              >
+                <Search size={16} /> Search Web
+              </a>
+            </div>
+          </div>
         )}
 
       </div>

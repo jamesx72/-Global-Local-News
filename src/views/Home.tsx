@@ -83,6 +83,28 @@ export default function Home() {
   const [articles, setArticles] = useState<Article[]>(TRENDING_ARTICLES);
   const { searchQuery } = useSearch();
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
+  const [lastViewedArticle, setLastViewedArticle] = useState<Article | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('last_viewed_article');
+      if (saved) {
+        setLastViewedArticle(JSON.parse(saved));
+      }
+    } catch (e) {}
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const recommendedArticles = React.useMemo(() => {
     if (readLater.length === 0) return [];
@@ -212,6 +234,24 @@ export default function Home() {
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 ">
       
+      {/* Offline Mode Banner */}
+      {isOffline && lastViewedArticle && (
+        <div className="bg-brand-surface-low border-2 border-brand-secondary/30 rounded-2xl p-6 mb-8 text-center flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-brand-secondary animate-pulse" />
+          <AlertTriangle size={28} className="text-brand-secondary mb-3" />
+          <h3 className="font-serif font-bold text-xl text-brand-primary mb-2">You are currently offline</h3>
+          <p className="text-brand-on-surface/80 text-sm max-w-md mx-auto mb-6">
+            You've lost your internet connection, but you can continue reading the last article you viewed.
+          </p>
+          <button 
+            onClick={() => setReadingArticleWithContext(lastViewedArticle, [lastViewedArticle])}
+            className="flex items-center gap-2 bg-brand-primary text-brand-surface-lowest px-6 py-3 rounded-full font-bold text-sm hover:opacity-90 transition-opacity shadow-md"
+          >
+            <Clock size={16} /> Continue Reading
+          </button>
+        </div>
+      )}
+
       {/* Hero Map Section */}
       <section className="relative h-[450px] bg-[#001026] rounded-2xl overflow-hidden shadow-xl">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-[#001026] to-[#001026]"></div>
