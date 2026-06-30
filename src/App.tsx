@@ -8,7 +8,10 @@ import Verification from './views/Verification';
 import Bookmarks from './views/Bookmarks';
 import Recent from './views/Recent';
 import Settings from './views/Settings';
+import Profile from './views/Profile';
 import ReadLater from './views/ReadLater';
+import AdvancedSearch from './views/AdvancedSearch';
+import AuthorProfile from './views/AuthorProfile';
 import ReminderToast from './components/ReminderToast';
 import ArticleDetail from './views/ArticleDetail';
 
@@ -143,6 +146,9 @@ export default function App() {
       case 'recent': return <Recent />;
       case 'readLater': return <ReadLater />;
       case 'settings': return <Settings />;
+      case 'profile': return <Profile />;
+      case 'advancedSearch': return <AdvancedSearch />;
+      case 'authorProfile': return <AuthorProfile authorName={viewData?.authorName} />;
       case 'articleDetail': return <ArticleDetail article={viewData?.article} />;
       default: return <Home />;
     }

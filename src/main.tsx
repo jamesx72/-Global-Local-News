@@ -6,18 +6,10 @@ import { AuthProvider } from './hooks/useAuth.tsx';
 import { SearchProvider } from './hooks/useSearch.tsx';
 import { ThemeProvider } from './hooks/useTheme.tsx';
 import { NotificationProvider } from './contexts/NotificationContext.tsx';
+import { registerSW } from 'virtual:pwa-register';
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(
-      (registration) => {
-        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-      },
-      (err) => {
-        console.log('ServiceWorker registration failed: ', err);
-      }
-    );
-  });
+  registerSW({ immediate: true });
 }
 
 createRoot(document.getElementById('root')!).render(

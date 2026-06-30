@@ -71,7 +71,7 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
 
   useEffect(() => {
     const fetchRelated = async () => {
-      const searchTerm = (article.tags && article.tags.length > 0) ? article.tags[0] : article.category;
+      const searchTerm = article.category;
       if (searchTerm) {
         try {
           const res = await fetch('/api/news/search?q=' + encodeURIComponent(searchTerm));
@@ -397,8 +397,8 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
     } else {
       window.speechSynthesis.cancel();
       const fullText = `${article?.title ?? ''}. ${textToSpeak}`;
-      // Split into sentences to avoid Chrome's 15-second speech synthesis bug
-      const chunks = fullText.match(/[^.!?]+[.!?]+/g) || [fullText];
+      // Split into sentences and paragraphs to avoid Chrome's 15-second speech synthesis bug
+      const chunks = fullText.match(/[^.!?\n]+[.!?\n]+/g) || [fullText];
       let currentChunk = 0;
       
       const speakNextChunk = () => {
@@ -514,17 +514,29 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
             </select>
           </div>
           <div className="flex items-center gap-2 text-brand-on-surface/70">
-            <select
-              value={fontSizeScale}
-              onChange={(e) => setFontSizeScale(parseFloat(e.target.value))}
-              className="bg-transparent text-xs text-brand-on-surface/70 border border-brand-outline rounded p-1 outline-none"
-              title="Font Size"
-            >
-              <option value="0.8">Small</option>
-              <option value="1">Medium</option>
-              <option value="1.2">Large</option>
-              <option value="1.5">X-Large</option>
-            </select>
+            <div className="flex items-center gap-1 bg-brand-surface-low rounded-lg p-1 border border-brand-outline">
+              <button 
+                onClick={() => setFontSizeScale(0.8)} 
+                className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors ${fontSizeScale === 0.8 ? 'bg-brand-primary text-brand-surface-lowest' : 'hover:bg-brand-surface text-brand-on-surface/70'}`} 
+                title="Small Font"
+              >
+                <span className="text-xs font-serif font-bold">A</span>
+              </button>
+              <button 
+                onClick={() => setFontSizeScale(1)} 
+                className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors ${fontSizeScale === 1 ? 'bg-brand-primary text-brand-surface-lowest' : 'hover:bg-brand-surface text-brand-on-surface/70'}`} 
+                title="Medium Font"
+              >
+                <span className="text-sm font-serif font-bold">A</span>
+              </button>
+              <button 
+                onClick={() => setFontSizeScale(1.2)} 
+                className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors ${fontSizeScale === 1.2 ? 'bg-brand-primary text-brand-surface-lowest' : 'hover:bg-brand-surface text-brand-on-surface/70'}`} 
+                title="Large Font"
+              >
+                <span className="text-lg font-serif font-bold">A</span>
+              </button>
+            </div>
             <div className="w-px h-6 bg-white/10 mx-2"></div>
             <button onClick={() => toggleReadLater(article)} className="p-2 rounded-full hover:bg-white/10 transition-colors" title="Read Later">
               <Clock size={18} className={isReadLater(article.id) ? "text-brand-secondary" : ""} />
@@ -595,7 +607,10 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 text-sm text-brand-on-surface/60 font-medium">
             <div className="flex items-center gap-2">
               <User size={16} className="text-brand-secondary" />
-              <span>By <span className="font-bold text-brand-primary">{article.author || 'Editorial Team'}</span></span>
+              <span>By <span 
+                className="font-bold text-brand-primary cursor-pointer hover:text-brand-secondary hover:underline transition-colors"
+                onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'authorProfile', data: { authorName: article.author || 'Editorial Team' } } }))}
+              >{article.author || 'Editorial Team'}</span></span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-brand-secondary" />
@@ -708,12 +723,18 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
         {/* End of article author info */}
         {article.author && !readerMode && (
           <div className="max-w-prose mx-auto border-t border-brand-outline-variant pt-12 pb-6 mt-12 flex flex-col md:flex-row items-center gap-6">
-            <div className="w-20 h-20 rounded-full bg-brand-surface border border-brand-outline shrink-0 overflow-hidden flex items-center justify-center">
+            <div 
+              className="w-20 h-20 rounded-full bg-brand-surface border border-brand-outline shrink-0 overflow-hidden flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors"
+              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'authorProfile', data: { authorName: article.author } } }))}
+            >
               <User size={32} className="text-brand-on-surface/30" />
             </div>
             <div className="flex-1 text-center md:text-left">
               <div className="text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1">About the Author</div>
-              <h4 className="font-serif text-xl font-bold text-brand-primary mb-2 flex items-center justify-center md:justify-start gap-2">
+              <h4 
+                className="font-serif text-xl font-bold text-brand-primary mb-2 flex items-center justify-center md:justify-start gap-2 cursor-pointer hover:text-brand-secondary hover:underline transition-colors w-fit mx-auto md:mx-0"
+                onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: { view: 'authorProfile', data: { authorName: article.author } } }))}
+              >
                 {article.author}
               </h4>
               <p className="text-brand-on-surface/80 text-sm leading-relaxed">
@@ -739,11 +760,11 @@ export default function ArticleDetail({ article }: ArticleDetailProps) {
           </div>
         )}
 
-        {/* Related Articles */}
+        {/* More Like This */}
         {!readerMode && relatedArticles.length > 0 && (
           <div className="max-w-prose mx-auto border-t border-brand-outline-variant py-12">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-brand-on-surface/50 mb-6 flex items-center gap-2">
-              <Sparkles size={16} className="text-brand-secondary" /> Related Articles
+            <h3 className="text-xl font-serif font-bold text-brand-primary mb-6 flex items-center gap-2">
+              <Sparkles size={20} className="text-brand-secondary" /> More Like This
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {relatedArticles.map((relArticle) => (

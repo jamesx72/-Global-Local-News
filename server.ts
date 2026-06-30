@@ -81,16 +81,17 @@ async function startServer() {
   // API Route for article search
   app.get("/api/news/search", async (req, res) => {
     try {
-      const { q } = req.query;
-      if (!q || typeof q !== 'string') {
-        return res.json({ articles: [] });
-      }
+      const { q, startDate, endDate, tags, author, category } = req.query;
 
       // Fetch the latest articles from the active feeds
       const sources = [
         { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'World' },
         { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', category: 'Tech' },
-        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', category: 'Science' }
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', category: 'Science' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'Business' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml', category: 'Sports' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml', category: 'Health' },
+        { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', category: 'Politics' },
       ];
 
       const Parser = (await import('rss-parser')).default;
@@ -130,36 +131,69 @@ async function startServer() {
       const allArticlesArrays = await Promise.all(feedPromises);
       let allArticles = allArticlesArrays.flat();
       
-      const query = q.toLowerCase();
-      
-      // Basic Full-Text Search Implementation
-      // Score-based ranking
-      const rankedArticles = allArticles.map(article => {
-        let score = 0;
+      const query = typeof q === 'string' ? q.toLowerCase() : '';
+      const filterStartDate = typeof startDate === 'string' ? new Date(startDate) : null;
+      const filterEndDate = typeof endDate === 'string' ? new Date(endDate) : null;
+      const filterTags = typeof tags === 'string' ? tags.toLowerCase().split(',').map(t => t.trim()).filter(Boolean) : [];
+      const filterAuthor = typeof author === 'string' ? author.toLowerCase() : '';
+      const filterCategory = typeof category === 'string' ? category.toLowerCase() : '';
+
+      let filteredArticles = allArticles.filter(article => {
+        const articleDate = new Date(article.timestamp);
         
-        // Exact title match gives high score
-        if (article.title.toLowerCase().includes(query)) score += 10;
+        // Date range filter
+        if (filterStartDate && !isNaN(filterStartDate.getTime()) && articleDate < filterStartDate) return false;
+        if (filterEndDate && !isNaN(filterEndDate.getTime()) && articleDate > filterEndDate) return false;
         
-        // Exact content match
-        if (article.content.toLowerCase().includes(query)) score += 5;
+        // Author filter
+        if (filterAuthor && (!article.author || !article.author.toLowerCase().includes(filterAuthor))) return false;
         
-        // Tokenized matching
-        const tokens = query.split(' ').filter(Boolean);
-        for (const token of tokens) {
-           if (article.title.toLowerCase().includes(token)) score += 3;
-           if (article.content.toLowerCase().includes(token)) score += 1;
-           if (article.tags && article.tags.some((t: string) => t.toLowerCase().includes(token))) score += 4;
-           if (article.category.toLowerCase().includes(token)) score += 4;
+        // Category filter
+        if (filterCategory && article.category.toLowerCase() !== filterCategory) return false;
+        
+        // Tags filter
+        if (filterTags.length > 0) {
+          const articleTags = (article.tags || []).map((t: string) => t.toLowerCase());
+          const hasMatchingTag = filterTags.some(tag => articleTags.some((t: string) => t.includes(tag)));
+          if (!hasMatchingTag) return false;
         }
 
-        return { ...article, searchScore: score };
-      }).filter(a => a.searchScore > 0);
+        return true;
+      });
 
-      // Sort by relevance score
-      rankedArticles.sort((a, b) => b.searchScore - a.searchScore);
+      // If query exists, rank by search score
+      if (query) {
+        filteredArticles = filteredArticles.map(article => {
+          let score = 0;
+          
+          if (article.title.toLowerCase().includes(query)) score += 10;
+          if (article.content.toLowerCase().includes(query)) score += 5;
+          
+          const tokens = query.split(' ').filter(Boolean);
+          for (const token of tokens) {
+             if (article.title.toLowerCase().includes(token)) score += 3;
+             if (article.content.toLowerCase().includes(token)) score += 1;
+             if (article.tags && article.tags.some((t: string) => t.toLowerCase().includes(token))) score += 4;
+             if (article.category.toLowerCase().includes(token)) score += 4;
+          }
 
-      // Remove the searchScore property from the response if needed, or keep it for the frontend
-      res.json({ articles: rankedArticles.map(({searchScore, ...rest}) => rest) });
+          return { ...article, searchScore: score };
+        }).filter(a => a.searchScore > 0);
+
+        filteredArticles.sort((a, b) => b.searchScore - a.searchScore);
+      } else {
+        // If no query, just sort by date
+        filteredArticles.sort((a, b) => {
+          const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return dateB - dateA;
+        });
+      }
+
+      res.json({ articles: filteredArticles.map((a: any) => {
+        const { searchScore, ...rest } = a;
+        return rest;
+      }) });
     } catch (error) {
       console.error("Search API error:", error);
       res.status(500).json({ error: "Failed to perform search" });

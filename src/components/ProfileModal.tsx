@@ -5,10 +5,11 @@ import { useAuth } from '../hooks/useAuth';
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onProfileClick: () => void;
   onSettingsClick: () => void;
 }
 
-export default function ProfileModal({ isOpen, onClose, onSettingsClick }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, onProfileClick, onSettingsClick }: ProfileModalProps) {
   const { user, logout } = useAuth();
 
   if (!isOpen || !user) return null;
@@ -51,12 +52,22 @@ export default function ProfileModal({ isOpen, onClose, onSettingsClick }: Profi
           <button 
             onClick={() => {
               onClose();
+              onProfileClick();
+            }}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-brand-primary hover:bg-brand-surface-low transition-colors w-full text-left"
+          >
+            <User size={18} className="text-gray-400" />
+            My Profile
+          </button>
+          <button 
+            onClick={() => {
+              onClose();
               onSettingsClick();
             }}
             className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-brand-primary hover:bg-brand-surface-low transition-colors w-full text-left"
           >
             <SettingsIcon size={18} className="text-gray-400" />
-            Profile & Settings
+            Account Settings
           </button>
           <button 
             onClick={() => {

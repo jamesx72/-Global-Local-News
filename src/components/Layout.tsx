@@ -148,6 +148,13 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-sm focus:outline-none w-full md:w-48 text-brand-primary min-w-0" 
             />
+            <button 
+              onClick={() => setCurrentView('advancedSearch')}
+              className="text-gray-400 hover:text-brand-secondary transition-colors p-1 rounded-full"
+              title="Advanced Search"
+            >
+              <Settings size={14} />
+            </button>
           </div>
           {!isVerification && (
             <button
@@ -242,6 +249,7 @@ export default function Layout({ children, currentView, setCurrentView }: Layout
       <ProfileModal 
         isOpen={profileModalOpen} 
         onClose={() => setProfileModalOpen(false)} 
+        onProfileClick={() => setCurrentView('profile')}
         onSettingsClick={() => setCurrentView('settings')}
       />
       <KeyboardShortcutsModal 
